@@ -804,15 +804,15 @@ arm9:
         
         r0: group ID of the overlay to unload
         others: ?
-    - name: Rgb8ToBgr5
+    - name: Rgb8ToRgb5
       address:
         EU: 0x2004FCC
         NA: 0x2004FCC
         JP: 0x2004FCC
       description: |-
-        Transform the input rgb8 color to a bgr5 color
+        Transform the input rgb8 color to a rgb5 color
         
-        r0: pointer to target bgr5 (2 bytes, aligned to LSB)
+        r0: pointer to target rgb5 (2 bytes, aligned to LSB)
         r1: pointer to source rgb8
     - name: EuclideanNorm
       address:
@@ -1004,7 +1004,7 @@ arm9:
       address:
         NA: 0x200C10C
       description: |-
-        Would have initialised the debug flags.
+        Would have initialized the debug flags.
         Does nothing in release binary.
     - name: GetDebugFlag
       address:
@@ -1029,7 +1029,7 @@ arm9:
     - name: InitDebugStripped6
       address:
         NA: 0x200C11C
-      description: "Does nothing, only called in the debug initialisation function."
+      description: "Does nothing, only called in the debug initialization function."
     - name: AppendProgPos
       address:
         EU: 0x200C1A8
@@ -1047,7 +1047,7 @@ arm9:
     - name: InitDebugStripped5
       address:
         NA: 0x200C168
-      description: "Does nothing, only called in the debug initialisation function."
+      description: "Does nothing, only called in the debug initialization function."
     - name: DebugPrintTrace
       address:
         EU: 0x200C1F4
@@ -1100,7 +1100,7 @@ arm9:
       address:
         NA: 0x200C230
       description: |-
-        Would have initialised the debug log flags.
+        Would have initialized the debug log flags.
         Does nothing in release binary.
     - name: GetDebugLogFlag
       address:
@@ -1136,19 +1136,19 @@ arm9:
     - name: InitDebugStripped4
       address:
         NA: 0x200C24C
-      description: "Does nothing, only called in the debug initialisation function."
+      description: "Does nothing, only called in the debug initialization function."
     - name: InitDebugStripped3
       address:
         NA: 0x200C250
-      description: "Does nothing, only called in the debug initialisation function."
+      description: "Does nothing, only called in the debug initialization function."
     - name: InitDebugStripped2
       address:
         NA: 0x200C254
-      description: "Does nothing, only called in the debug initialisation function."
+      description: "Does nothing, only called in the debug initialization function."
     - name: InitDebugStripped1
       address:
         NA: 0x200C258
-      description: "Does nothing, only called in the debug initialisation function."
+      description: "Does nothing, only called in the debug initialization function."
     - name: FatalError
       address:
         EU: 0x200C2E4
@@ -1168,7 +1168,7 @@ arm9:
         NA: 0x200C2DC
         JP: 0x200C2DC
       description: |-
-        Open the 6 files at PACK_FILE_PATHS_TABLE into PACK_FILE_OPENED. Called during game initialisation.
+        Open the 6 files at PACK_FILE_PATHS_TABLE into PACK_FILES_OPENED. Called during game initialization.
         
         No params.
     - name: GetFileLengthInPackWithPackNb
@@ -1213,7 +1213,7 @@ arm9:
         NA: 0x200C3E0
         JP: 0x200C3E0
       description: |-
-        Open a Pack file, to be read later. Initialise the output structure.
+        Open a Pack file, to be read later. Initialize the output structure.
         
         r0: [output] pack file struct
         r1: file name
@@ -3637,17 +3637,17 @@ arm9:
         NA: 0x201E494
         JP: 0x201E4EC
       description: |-
-        Send the "TEXIMAGE_PARAM" geometry engine command, that defines some parameters for the texture
+        Send the TEXIMAGE_PARAM geometry engine command, that defines some parameters for the texture
         See http://problemkaputt.de/gbatek.htm#ds3dtextureattributes for more information on the parameters
         
         r0: texture format
         r1: texture coordinates transformation modes
         r2: texture S-Size
         r3: texture T-Size
-        stack[0] (0x0): repeat in S Direction
-        stack[1] (0x4): flip in S direction
+        stack[0] (0x0): repeat in S (bit 0) and/or T (bit 1) direction
+        stack[1] (0x4): flip in S (bit 0) and/or T (bit 1) direction
         stack[2] (0x8): What to make of color 0 (bit 29)
-        stack[3] (0xC): Texture VRAM offset (Will be divided by 8)
+        stack[3] (0xC): Texture VRAM offset divided by 8
     - name: GeomSetVertexCoord16
       address:
         EU: 0x201E570
@@ -3678,26 +3678,105 @@ arm9:
         Call the "SWAP_BUFFERS" command. This will swap the geometry buffer. The parameter of 1 is provided, which enables manual Y-sorting of translucent polygons.
         
         No params.
-    - name: InitRender3dElement
+    - name: InitRender3dElement64
       address:
         EU: 0x201E7CC
         NA: 0x201E730
         JP: 0x201E788
       description: |-
-        Initialize the render_3d_element structure (without performing any drawing or external data access)
+        Initialize the render_3d_element_64 structure (without performing any drawing or external data access)
         
-        r0: render_3d_element
-    - name: Generate3dCanvasBorder
+        r0: render_3d_element_64
+    - name: Render3d64Texture0x7
+      address:
+        NA: 0x201E844
+      description: |-
+        RENDER_3D_FUNCTIONS_64[7]. Renders a render_3d_element_64 with type RENDER64_TEXTURE_0x7.
+        
+        Converts the render_3d_element_64 to a render_3d_element on the render queue of RENDER_3D, with type RENDER_TEXTURE.
+        
+        r0: render_3d_element_64
+    - name: Render3d64Border
       address:
         EU: 0x201EA88
         NA: 0x201E9EC
         JP: 0x201EA44
       description: |-
         Draw the border for dialogue box and other menus, using the 3D engine.
-        The render_3d_element contains certain value that needs to be set to a correct value for it to work.
-        The element is not immediately sent to the geometry engine, but is queued up in RENDER_3D
         
-        r0: render_3d_element
+        The render_3d_element_64 contains certain value that needs to be set to a correct value for it to work.
+        The element is not immediately sent to the geometry engine, but is converted to a render_3d_element and queued up in RENDER_3D.
+        
+        RENDER_3D_FUNCTIONS_64[6], corresponding to a type of RENDER64_BORDER.
+        
+        r0: render_3d_element_64
+    - name: EnqueueRender3d64Tiling
+      address:
+        EU: 0x201ED38
+        NA: 0x201EC9C
+      description: |-
+        Converts a render_3d_element_64 with type RENDER64_TILING to a render_3d_element on the render queue of RENDER_3D, with type RENDER_TILING.
+        
+        r0: render_3d_element_64
+    - name: Render3d64Tiling
+      address:
+        NA: 0x201ED88
+      description: |-
+        RENDER_3D_FUNCTIONS_64[5]. Renders a render_3d_element_64 with type RENDER64_TILING.
+        
+        Converts the render_3d_element_64 to a render_3d_element on the render queue of RENDER_3D, with type RENDER_TILING.
+        
+        r0: render_3d_element_64
+    - name: Render3d64Quadrilateral
+      address:
+        NA: 0x201EE50
+      description: |-
+        RENDER_3D_FUNCTIONS_64[4]. Renders a render_3d_element_64 with type RENDER64_QUADRILATERAL.
+        
+        Converts the render_3d_element_64 to a render_3d_element on the render queue of RENDER_3D, with type RENDER_QUADRILATERAL.
+        
+        r0: render_3d_element_64
+    - name: Render3d64RectangleMulticolor
+      address:
+        NA: 0x201EEF0
+      description: |-
+        RENDER_3D_FUNCTIONS_64[3]. Renders a render_3d_element_64 with type RENDER64_RECTANGLE_MULTICOLOR.
+        
+        Converts the render_3d_element_64 to a render_3d_element on the render queue of RENDER_3D, with type RENDER_RECTANGLE.
+        
+        r0: render_3d_element_64
+    - name: Render3d64Rectangle
+      address:
+        NA: 0x201F05C
+      description: |-
+        RENDER_3D_FUNCTIONS_64[2]. Renders a render_3d_element_64 with type RENDER64_RECTANGLE.
+        
+        Converts the render_3d_element_64 to a render_3d_element on the render queue of RENDER_3D, with type RENDER_RECTANGLE.
+        
+        r0: render_3d_element_64
+    - name: Render3d64Nothing
+      address:
+        NA: 0x201F108
+      description: |-
+        RENDER_3D_FUNCTIONS_64[1]. Renders a render_3d_element_64 with type RENDER64_NOTHING. This function is entirely empty.
+        
+        r0: render_3d_element_64
+    - name: Render3d64Texture
+      address:
+        NA: 0x201F10C
+      description: |-
+        RENDER_3D_FUNCTIONS_64[0]. Renders a render_3d_element_64 with type RENDER64_TEXTURE.
+        
+        Converts the render_3d_element_64 to a render_3d_element on the render queue of RENDER_3D, with type RENDER_TEXTURE.
+        
+        r0: render_3d_element_64
+    - name: Render3dElement64
+      address:
+        NA: 0x201F1D4
+      description: |-
+        Dispatches a render_3d_element_64 to the render function corresponding to its type.
+        
+        r0: render_3d_element_64
     - name: HandleSir0Translation
       address:
         EU: 0x201F550
@@ -4141,6 +4220,17 @@ arm9:
         r1: group_id
         r2: restrictions
         return: ?
+    - name: NewDialogBox
+      address:
+        NA: 0x20276C0
+      description: |-
+        Seems to return the ID of a newly initialized dialog box in the next available slot in DIALOG_BOX_LIST, given some starting information.
+        
+        If DIALOG_BOX_LIST is full, it will be overflowed, with the slot with an ID of 20 being initialized and returned.
+        
+        r0: dialog_box_hdr pointer to be copied by value into dialog_box::hdr in the new dialog box
+        r1: ?
+        return: dialog box ID
     - name: SetScreenWindowsColor
       address:
         EU: 0x2027D5C
@@ -4176,9 +4266,16 @@ arm9:
         NA: 0x202950C
         JP: 0x2029864
       description: |-
-        Load and initialise the cursor and cursor16 sprites, storing the result in CURSOR_ANIMATION_CONTROL and CURSOR_16_ANIMATION_CONTROL
+        Load and initialize the cursor and cursor16 sprites, storing the result in CURSOR_ANIMATION_CONTROL and CURSOR_16_ANIMATION_CONTROL
         
         No params.
+    - name: InitDialogBoxTrailer
+      address:
+        NA: 0x2029670
+      description: |-
+        Seems to initialize a dialog_box_trailer within a new dialog_box.
+        
+        r0: dialog_box_trailer pointer
     - name: Arm9LoadUnkFieldNa0x2029EC8
       address:
         EU: 0x202A1BC
@@ -4204,7 +4301,7 @@ arm9:
         NA: 0x2029EE8
         JP: 0x202A240
       description: |-
-        Load and initialise the alert sprite, storing the result in ALERT_ANIMATION_CONTROL
+        Load and initialize the alert sprite, storing the result in ALERT_ANIMATION_CONTROL
         
         No params.
     - name: PrintClearMark
@@ -7865,6 +7962,36 @@ arm9:
         Enable the VRAM banks in the input set. Will reset the pointed set to 0, and update ENABLED_VRAM_BANKS
         
         r0: vram_banks_set *
+    - name: GeomMtxLoad4x3
+      address:
+        NA: 0x207778C
+      description: |-
+        Send the MTX_LOAD_4x3 geometry engine command, through a GXFIFO command. See https://problemkaputt.de/gbatek.htm#ds3dgeometrycommands and https://problemkaputt.de/gbatek.htm#ds3dmatrixloadmultiply for more information.
+        
+        This pops the top of the current matrix stack (https://problemkaputt.de/gbatek.htm#ds3dmatrixstack) and sets it as the engine's "current" matrix. It's commonly preceded by a MTX_PUSH command to populate the matrix stack with a matrix.
+        
+        r0: matrix_4x3 pointer
+    - name: GeomMtxMult4x3
+      address:
+        NA: 0x20777A8
+      description: |-
+        Send the MTX_MULT_4x3 geometry engine command, through a GXFIFO command. See https://problemkaputt.de/gbatek.htm#ds3dgeometrycommands and https://problemkaputt.de/gbatek.htm#ds3dmatrixloadmultiply for more information.
+        
+        This pops the top of the current matrix stack (https://problemkaputt.de/gbatek.htm#ds3dmatrixstack) and left-multiplies the engine's "current" matrix by the new matrix. It's commonly preceded by a MTX_PUSH command to populate the matrix stack with a matrix.
+        
+        r0: matrix_4x3 pointer
+    - name: GeomGxFifoSendMtx4x3
+      address:
+        NA: 0x20788C0
+      description: |-
+        Send a 4x3 matrix argument for a GXFIFO geometry engine command.
+        
+        This function is used by GeomMtxLoad4x3 and GeomMtxMult4x3 to pass the matrix argument for a GXFIFO command after already having written the command code. See https://problemkaputt.de/gbatek.htm#ds3dgeometrycommands for more information.
+        
+        Note that the GXFIFO address is 0x4000400, but is (maybe) mirrored up to 0x400043F. This function is optimized to take advantage of this by writing 3 matrix entries at a time using ldmia and stmia instructions.
+        
+        r0: matrix_4x3 pointer
+        r1: GXFIFO pointer
     - name: ClearIrqFlag
       address:
         EU: 0x207BB68
@@ -7943,6 +8070,103 @@ arm9:
         This just calls (in Ghidra terminology) coproc_moveto_Wait_for_interrupt(0). See https://en.wikipedia.org/wiki/ARM_architecture_family#Coprocessors.
         
         No params.
+    - name: ArrayFill16
+      address:
+        NA: 0x207C2B8
+      description: |-
+        Fills an array of 16-bit values with a given value.
+        
+        r0: value
+        r1: ptr
+        r2: len (# bytes)
+    - name: ArrayCopy16
+      address:
+        NA: 0x207C2E0
+      description: |-
+        Copies an array of 16-bit values to another array of 16-bit values.
+        
+        This is essentially an alternate implementation of Memcpy16, but with a different parameter order.
+        
+        r0: src
+        r1: dest
+        r2: len (# bytes)
+    - name: ArrayFill32
+      address:
+        NA: 0x207C314
+      description: |-
+        Fills an array of 32-bit values with a given value.
+        
+        This is essentially an alternate implementation of Memset32, but with a different parameter order.
+        
+        r0: value
+        r1: ptr
+        r2: len (# bytes)
+    - name: ArrayCopy32
+      address:
+        NA: 0x207C330
+      description: |-
+        Copies an array of 32-bit values to another array of 32-bit values.
+        
+        This is essentially an alternate implementation of Memcpy32, but with a different parameter order.
+        
+        r0: src
+        r1: dest
+        r2: len (# bytes)
+    - name: ArrayFill32Fast
+      address:
+        NA: 0x207C358
+      description: |-
+        Does the same thing as ArrayFill32, except the implementation uses an unrolled loop that sets 8 values per iteration, taking advantage of the stmia instruction.
+        
+        r0: value
+        r1: ptr
+        r2: len (# bytes)
+    - name: ArrayCopy32Fast
+      address:
+        NA: 0x207C3B4
+      description: |-
+        Does the same thing as ArrayCopy32, except the implementation uses an unrolled loop that copies 8 values per iteration, taking advantage of the ldmia/stmia instructions.
+        
+        r0: src
+        r1: dest
+        r2: len (# bytes)
+    - name: MemsetFast
+      address:
+        NA: 0x207C40C
+      description: |-
+        A semi-optimized implementation of the memset(3) C library function.
+        
+        This function was probably manually implemented by the developers, or was included as part of a library other than libc (the Nitro SDK probably?). See memset for what's probably the real libc function.
+        
+        This function is optimized to set values in 4-byte chunks, properly dealing with pointer alignment. However, unlike the libc memset, there are no loop unrolling optimizations.
+        
+        r0: ptr
+        r1: value
+        r2: len (# bytes)
+    - name: MemcpyFast
+      address:
+        NA: 0x207C4C8
+      description: |-
+        Copies bytes from one buffer to another, similar to memcpy(3). Note that the source/destination buffer parameters swapped relative to the standard memcpy.
+        
+        This function was probably manually implemented by the developers, or was included as part of a library other than libc (the Nitro SDK probably?). See memcpy for what's probably the real libc function.
+        
+        This function is optimized to copy values in 4-byte chunks, properly dealing with pointer alignment.
+        
+        r0: src
+        r1: dest
+        r2: n (# bytes)
+    - name: AtomicExchange
+      address:
+        NA: 0x207C648
+      description: |-
+        Atomically replaces a pointer's pointee with a desired value, and returns the previous value.
+        
+        This function is just a single swp instruction.
+        
+        r0: desired value
+        r1: ptr
+        return: previous value
     - name: FileInit
       address:
         EU: 0x207F77C
@@ -8427,7 +8651,7 @@ arm9:
         r1: divisor
         return: (quotient) | (remainder << 32)
   data:
-    - name: ARM9_HEADER
+    - name: SECURE
       address:
         EU: 0x2000000
         NA: 0x2000000
@@ -8436,8 +8660,8 @@ arm9:
         EU: 0x800
         NA: 0x800
         JP: 0x800
-      description: "Note: unverified, ported from Irdkwia's notes"
-    - name: SDK_STRINGS
+      description: "The header of the DS cartridge secure area. See https://problemkaputt.de/gbatek.htm#dscartridgesecurearea"
+    - name: START_MODULE_PARAMS
       address:
         EU: 0x2000BA0
         NA: 0x2000BA0
@@ -8446,7 +8670,7 @@ arm9:
         EU: 0xCC
         NA: 0xCC
         JP: 0xCC
-      description: "Note: unverified, ported from Irdkwia's notes"
+      description: Parameters used by the NitroSDK to read the ROM.
     - name: DEFAULT_MEMORY_ARENA_SIZE
       address:
         EU: 0x2000E58
@@ -8577,8 +8801,83 @@ arm9:
         JP: 0x2092DD0
       length:
         EU: 0x2000
-        NA: 0x4000
+        NA: 0x2000
         JP: 0x2000
+    - name: STRING_DEBUG_EMPTY
+      address:
+        NA: 0x2094AFC
+      length:
+        NA: 0x4
+    - name: STRING_DEBUG_FORMAT_LINE_FILE
+      address:
+        NA: 0x2094B00
+      length:
+        NA: 0x1C
+    - name: STRING_DEBUG_NO_PROG_POS
+      address:
+        NA: 0x2094B1C
+      length:
+        NA: 0x18
+    - name: STRING_DEBUG_SPACED_PRINT
+      address:
+        NA: 0x2094B34
+      length:
+        NA: 0xC
+    - name: STRING_DEBUG_FATAL
+      address:
+        NA: 0x2094B40
+      length:
+        NA: 0x14
+    - name: STRING_DEBUG_NEWLINE
+      address:
+        NA: 0x2094B54
+      length:
+        NA: 0x4
+    - name: STRING_DEBUG_LOG_NULL
+      address:
+        NA: 0x2094B58
+      length:
+        NA: 0x8
+    - name: STRING_DEBUG_STRING_NEWLINE
+      address:
+        NA: 0x2094B60
+      length:
+        NA: 0x4
+    - name: STRING_EFFECT_EFFECT_BIN
+      address:
+        NA: 0x2094B64
+      length:
+        NA: 0x14
+    - name: STRING_MONSTER_MONSTER_BIN
+      address:
+        NA: 0x2094B78
+      length:
+        NA: 0x14
+    - name: STRING_BALANCE_M_LEVEL_BIN
+      address:
+        NA: 0x2094B8C
+      length:
+        NA: 0x14
+    - name: STRING_DUNGEON_DUNGEON_BIN
+      address:
+        NA: 0x2094BA0
+      length:
+        NA: 0x14
+    - name: STRING_MONSTER_M_ATTACK_BIN
+      address:
+        NA: 0x2094BB4
+      length:
+        NA: 0x18
+    - name: STRING_MONSTER_M_GROUND_BIN
+      address:
+        NA: 0x2094BCC
+      length:
+        NA: 0x18
+    - name: STRING_FILE_DIRECTORY_INIT
+      address:
+        NA: 0x2094BE4
+      length:
+        NA: 0x28
     - name: AVAILABLE_ITEMS_IN_GROUP_TABLE
       address:
         EU: 0x2095130
@@ -10089,7 +10388,7 @@ arm9:
         See the struct definitions and End45's dungeon data document for more info.
         
         type: struct map_marker[310]
-    - name: ARM9_UNKNOWN_TABLE__NA_20A9FB0
+    - name: TRIG_TABLE
       address:
         EU: 0x20AA850
         NA: 0x20A9FB0
@@ -10099,9 +10398,24 @@ arm9:
         NA: 0x4974
         JP: 0x4974
       description: |-
-        4701*0x4
+        Interleaved table of sine and cosine values at 4096 divisions over a full period (2π radians).
         
-        Note: unverified, ported from Irdkwia's notes
+        More precisely, the trig_values entry at index i corresponds to {sin(i * 2π/4096), cos(i * 2π/4096)} (each division is ~1/10 of a degree). Values are stored as signed fixed-point numbers with 12 fraction bits.
+        
+        type: struct trig_values[4096]
+    - name: ARM9_UNKNOWN_TABLE__NA_20ADFB0
+      address:
+        EU: 0x20AE850
+        NA: 0x20ADFB0
+        JP: 0x20AF3F8
+      length:
+        EU: 0x974
+        NA: 0x974
+        JP: 0x974
+      description: |-
+        701*0x4
+        
+        Note: unverified, ported from Irdkwia's notes (split from TRIG_TABLE)
     - name: ARM9_UNKNOWN_TABLE__NA_20AE924
       address:
         EU: 0x20AF1C4
@@ -10218,7 +10532,7 @@ arm9:
         NA: 0x20AF698
       length:
         NA: 0x1
-    - name: PACK_FILE_OPENED
+    - name: PACK_FILES_OPENED
       address:
         EU: 0x20AFF54
         NA: 0x20AF69C
@@ -10300,10 +10614,25 @@ arm9:
     - name: RENDER_3D
       address:
         EU: 0x20B0540
+        NA: 0x20AFC80
+      length:
+        EU: 0x44
+        NA: 0x44
       description: |-
         The (seemingly) unique instance render_3d_global in the game
         
         type: struct render_3d_global
+    - name: RENDER_3D_FUNCTIONS_64
+      address:
+        EU: 0x20B0584
+        NA: 0x20AFCC4
+      length:
+        EU: 0x20
+        NA: 0x20
+      description: |-
+        Pointers to the 8 functions available for rendering a render_3d_element_64
+        
+        type: render_3d_element_64_fn_t[8]
     - name: LANGUAGE_INFO_DATA
       address:
         EU: 0x20B05A8

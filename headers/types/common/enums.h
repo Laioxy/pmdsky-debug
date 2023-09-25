@@ -3721,12 +3721,67 @@ enum mission_rank {
 ENUM_8_BIT(mission_rank);
 #pragma pack(pop)
 
+// base-level 3D rendering variants
+enum render_type {
+    // solid rectangle
+    RENDER_RECTANGLE = 0,
+    // arbitrary quadrilateral
+    RENDER_QUADRILATERAL = 1,
+    // repeated tiling of a texture over a region defined by a quadrilateral
+    RENDER_TILING = 2,
+    // single rectangular texture tile
+    RENDER_TEXTURE = 3,
+};
+
+// higher-level 3D rendering variants that implicitly rely on render_type
+enum render_type_64 {
+    // single tile, used for, e.g., HUD text, screen haze effects
+    // based on RENDER_TEXTURE
+    RENDER64_TEXTURE = 0,
+    // render function does nothing
+    RENDER64_NOTHING = 1,
+    // solid rectangle, used for, e.g., box backdrops, black screens
+    // based on RENDER_RECTANGLE
+    RENDER64_RECTANGLE = 2,
+    // solid, possibly multicolored rectangle
+    // based on RENDER_RECTANGLE
+    RENDER64_RECTANGLE_MULTICOLOR = 3,
+    // solid quadrilateral
+    // based on RENDER_QUADRILATERAL
+    RENDER64_QUADRILATERAL = 4,
+    // repeated tiling of a single texture, used for, e.g., health bar
+    // based on RENDER_TILING
+    RENDER64_TILING = 5,
+    // border surrounding dialog boxes, menus, etc.
+    // based on RENDER_TILING
+    RENDER64_BORDER = 6,
+    // seemingly just renders a single texture tile, but with a weird useless loop over a 10x8 grid
+    // to offset the tile somewhat, which always ends up picking the last (bottom-right) grid cell
+    // based on RENDER_TEXTURE
+    RENDER64_TEXTURE_0x7 = 7,
+};
+
+// This is usually stored as an 8-bit integer
+#pragma pack(push, 1)
+ENUM_8_BIT(render_type_64);
+#pragma pack(pop)
+
 enum portrait_canvas_state {
     PORTRAIT_CANVAS_HIDDEN = 0,
     PORTRAIT_CANVAS_TRY_UPDATE = 1,
     PORTRAIT_CANVAS_UPDATE = 2,
     PORTRAIT_CANVAS_STANDBY = 3,
     PORTRAIT_CANVAS_HIDE = 4,
+};
+
+// Correspond to a .bin pack archive
+enum pack_file_id {
+    PACK_ARCHIVE_MONSTER = 0,
+    PACK_ARCHIVE_M_ATTACK = 1,
+    PACK_ARCHIVE_M_GROUND = 2,
+    PACK_ARCHIVE_EFFECT = 3,
+    PACK_ARCHIVE_DUNGEON = 4,
+    PACK_ARCHIVE_M_LEVEL = 5,
 };
 
 enum wan_source_type {
