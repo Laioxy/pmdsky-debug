@@ -1450,6 +1450,32 @@ arm9:
         r0: pointer to item to initialize
         r1: item ID
         r2: sticky flag
+    - name: InitBulkItem
+      address:
+        NA: 0x200CF78
+      description: |-
+        Initialize a struct bulk_item with the given information.
+        
+        This will resolve the quantity based on the item type. For Poké, the quantity code will always be set to 1. For thrown items, the quantity code will be randomly generated on the range of valid quantities for that item type. For non-stackable items, the quantity code will always be set to 0.
+        
+        r0: pointer to bulk item to initialize
+        r1: item ID
+    - name: BulkItemToItem
+      address:
+        NA: 0x200CFF0
+      description: |-
+        Convert a bulk_item into an equivalent item.
+        
+        r0: pointer to item to initialize
+        r1: pointer to bulk_item
+    - name: ItemToBulkItem
+      address:
+        NA: 0x200D0A0
+      description: |-
+        Convert an item into an equivalent bulk_item.
+        
+        r0: pointer to bulk_item to initialize
+        r1: pointer to item
     - name: GetDisplayedBuyPrice
       address:
         EU: 0x200D158
@@ -1574,6 +1600,16 @@ arm9:
         Zero-initializes an item struct.
         
         r0: item
+    - name: AreItemsEquivalent
+      address:
+        NA: 0x200D834
+      description: |-
+        Checks whether two items are equivalent and only checks the bitflags specified by the bitmask.
+        
+        r0: item
+        r1: item
+        r2: bitmask
+        return: bool
     - name: WriteItemsToSave
       address:
         EU: 0x200D9E4
@@ -1629,10 +1665,20 @@ arm9:
         NA: 0x200E1F8
         JP: 0x200E228
       description: |-
-        Note: unverified, ported from Irdkwia's notes
+        If the item is a treasure box return the first version of the treasure box in the item list.
+        Otherwise, return the same item ID.
         
         r0: item ID
         return: normalized item ID
+    - name: SortItemList
+      address:
+        NA: 0x200E3A0
+      description: |-
+        Attempts to combine stacks of throwable items, sort the list, and then remove empty items.
+        Appears to use selection sort to sort the list in place.
+        
+        r0: item array
+        r1: number of items in array
     - name: RemoveEmptyItems
       address:
         EU: 0x200E698
@@ -1841,22 +1887,23 @@ arm9:
         
         r0: item ID
         return: bool
-    - name: SetGold
+    - name: SetActiveInventory
       address:
         EU: 0x200ED80
         NA: 0x200ECD8
         JP: 0x200ED08
       description: |-
-        Note: unverified, ported from Irdkwia's notes
+        Changes the currently active inventory. Has one for the main team, rescue team, and the special
+        episode team?
         
-        r0: new value
-    - name: GetGold
+        r0: team ID
+    - name: GetMoneyCarried
       address:
         EU: 0x200EDA4
         NA: 0x200ECFC
         JP: 0x200ED2C
       description: |-
-        Note: unverified, ported from Irdkwia's notes
+        Gets the amount of money the player is carrying.
         
         return: value
     - name: SetMoneyCarried
@@ -2176,37 +2223,128 @@ arm9:
         NA: 0x200F874
         JP: 0x200F844
       description: |-
-        Note: unverified, ported from Irdkwia's notes
+        A wrapper around AddItemToBag with held_by being 0 (no holder).
         
         r0: item_str
-        return: ?
+        return: bool item was successfully added to the bag
     - name: AddItemToBag
       address:
         EU: 0x200F92C
         NA: 0x200F884
         JP: 0x200F854
       description: |-
-        Note: unverified, ported from Irdkwia's notes
+        Attempts to add an item to the bag.
         
         r0: item_str
         r1: held_by
-        return: ?
-    - name: ScriptSpecialProcess0x39
+        return: bool item was successfully added to the bag
+    - name: CleanStickyItemsInBag
+      address:
+        NA: 0x200F910
+      description: |-
+        Removes the sticky flag from all the items currently in the bag.
+        
+        No params.
+    - name: CountStickyItemsInBag
+      address:
+        NA: 0x200F940
+      description: |-
+        Counts the number of sticky items currently in the bag.
+        
+        return: number of sticky items
+    - name: TransmuteHeldItemInBag
+      address:
+        NA: 0x200FA68
+      description: |-
+        Looks for an item in the bag that has the same holder (held_by) as the transmute item and convert
+        their equivalent item in the treasure bag into the transmute item. The monster's held item on
+        their struct should be updated accordingly directly before or after calling this function.
+        
+        r0: transmute_item
+        return: bool whether or not the item could be transmuted
+    - name: SetFlagsForHeldItemInBag
+      address:
+        NA: 0x200FAEC
+      description: |-
+        Looks for an item in the bag that has the holder (held_by) as the item and make their equivalent
+        item in the treasure bag sticky. The monster's held item on their struct should be updated
+        accordingly directly before or after calling this function. Mostly used for making existing items
+        sticky.
+        
+        r0: held_by
+        r1: item bitflags
+    - name: RemoveHolderForItemInBag
+      address:
+        NA: 0x200FB54
+      description: |-
+        Looks for an item in the bag that is equivalent and make the holder none. The monster's held item
+        on their struct should be updated accordingly directly before or after calling this function.
+        
+        r0: pointer to an item
+    - name: SetHolderForItemInBag
+      address:
+        NA: 0x200FBE0
+      description: |-
+        Modifies the item at the index to be held by the monster specified and updates the item with the
+        holder as well. This only modifies the flags and held_by of the item.
+        
+        r0: item index
+        r1: pointer to an item
+        r2: held_by
+    - name: SortItemsInBag
+      address:
+        NA: 0x200FC24
+      description: |-
+        Sorts the current items in the item bag but first checks if any Poke is in the bag to remove. If
+        Poke is found, add it to money carried.
+        
+        No params.
+    - name: RemovePokeItemsInBag
+      address:
+        NA: 0x200FCAC
+      description: |-
+        Checks the bag for any Poke and removes it after adding it to money carried.
+        
+        No params.
+    - name: IsStorageFull
       address:
         EU: 0x200FDFC
         NA: 0x200FD54
         JP: 0x200FD24
       description: |-
+        Checks if the storage is full accounting for the current rank of the team.
         Implements SPECIAL_PROC_0x39 (see ScriptSpecialProcessCall).
         
         return: bool
+    - name: CountNbOfItemsInStorage
+      address:
+        NA: 0x200FD78
+      description: |-
+        Counts the number of items currently in storage (including invalid items).
+        
+        return: number of items in storage
+    - name: CountNbOfValidItemsInStorage
+      address:
+        NA: 0x200FDB0
+      description: |-
+        Counts the number of items currently in storage that are valid.
+        
+        return: number of valid items in storage
+    - name: CountNbOfValidItemsInTimeDarknessInStorage
+      address:
+        NA: 0x200FE00
+      description: |-
+        Counts the number of items currently in storage that are valid and in time and darkness.
+        
+        return: number of valid items in storage
     - name: CountNbItemsOfTypeInStorage
       address:
         EU: 0x200FF50
         NA: 0x200FEA8
         JP: 0x200FE78
       description: |-
-        Returns the number of items of the given kind in the storage
+        Counts the number of instances of an item in storage not accounting for the number of items
+        in a stack.
         
         r0: item ID
         return: count
@@ -2216,30 +2354,110 @@ arm9:
         NA: 0x200FEE4
         JP: 0x200FEB4
       description: |-
+        Counts the number of a certain item in storage accounting for stackable items.
         Implements SPECIAL_PROC_COUNT_ITEM_TYPE_IN_STORAGE (see ScriptSpecialProcessCall).
         
-        r0: pointer to an owned_item
+        r0: pointer to an bulk_item
         return: number of items of the specified ID in storage
-    - name: RemoveItemsTypeInStorage
+    - name: GetEquivBulkItemIdxInStorage
+      address:
+        NA: 0x200FF50
+      description: |-
+        Checks for a storage item equivalent to the bulk_item and returns the index of the item in storage.
+        Returns -1 if unable to find an equivalent item.
+        
+        r0: pointer to a bulk_item
+        return: index in storage
+    - name: ConvertStorageItemAtIdxToBulkItem
+      address:
+        NA: 0x200FFAC
+      description: |-
+        Get an item in storage and converts it into an equivalent bulk_item. This does not remove the
+        item from storage.
+        
+        r0: item index
+        r1: [output] pointer to a bulk_item
+        return: bool whether or not the item id is not 0
+    - name: ConvertStorageItemAtIdxToItem
+      address:
+        NA: 0x200FFF4
+      description: |-
+        Get an item in storage and converts it into an equivalent item. The item does NOT have the exists
+        flag set to true. This does not remove the item from storage.
+        
+        r0: item index
+        r1: [output] pointer to an item
+        return: bool whether or not the item id is not 0
+    - name: RemoveItemAtIdxInStorage
+      address:
+        NA: 0x20101A0
+      description: |-
+        Remove an item at the specified index from storage.
+        
+        r0: storage item idx
+        return: bool whether or not the item was removed (fails if there is no storage item at the index)
+    - name: RemoveBulkItemInStorage
       address:
         EU: 0x201028C
         NA: 0x20101E4
         JP: 0x20101B4
       description: |-
+        Removes a storage item equivalent to the bulk_item passed from storage.
         Probably? Implements SPECIAL_PROC_0x2A (see ScriptSpecialProcessCall).
         
-        r0: pointer to an owned_item
-        return: bool
-    - name: AddItemToStorage
+        r0: pointer to a bulk_item
+        return: bool whether an item was removed
+    - name: RemoveItemInStorage
+      address:
+        NA: 0x2010260
+      description: |-
+        Removes a storage item equivalent to the item passed from storage.
+        
+        r0: pointer to an item
+        return: bool whether an item was removed
+    - name: StorageZInit
+      address:
+        NA: 0x20102DC
+      description: |-
+        Initializes the storage to be empty.
+        
+        No params.
+    - name: AddBulkItemToStorage
       address:
         EU: 0x20103C4
         NA: 0x201031C
         JP: 0x20102EC
       description: |-
+        Attempts to add the bulk_item to storage.
         Implements SPECIAL_PROC_ADD_ITEM_TO_STORAGE (see ScriptSpecialProcessCall).
         
-        r0: pointer to an owned_item
-        return: bool
+        r0: pointer to a bulk_item
+        return: bool whether an item was added
+    - name: AddItemToStorage
+      address:
+        NA: 0x20103AC
+      description: |-
+        Attempts to add the item to storage.
+        
+        r0: pointer to an item
+        return: bool whether an item was added
+    - name: SortItemsInStorage
+      address:
+        NA: 0x2010424
+      description: |-
+        Sorts the item in storage by making converting them into normal items in a temporary list and
+        using SortItemList on them. After, it puts the list of items back into storage. This may also have
+        another use or do something broader than just sorting because it outputs a bool array.
+        
+        r0: [output] bool array?
+        r1: number of items to sort (usually just the current size of storage)
+    - name: GetMoneyStored
+      address:
+        NA: 0x201070C
+      description: |-
+        Gets the amount of money the player has stored in the Duskull Bank.
+        
+        return: amount of money stored
     - name: SetMoneyStored
       address:
         EU: 0x20107CC
@@ -2249,18 +2467,48 @@ arm9:
         Sets the amount of money the player has stored in the Duskull Bank, clamping the value to the range [0, MAX_MONEY_STORED].
         
         r0: new value
-    - name: GetKecleonItems1
+    - name: AddMoneyStored
+      address:
+        NA: 0x2010758
+      description: |-
+        Adds money to the amount of money the player has stored in the Duskull Bank. Just calls SetMoneyStored with the current money + money gained.
+        
+        r0: money gained (can be negative)
+    - name: SortKecleonItems1
+      address:
+        NA: 0x2010954
+      description: |-
+        Sorts the items for the normal Kecleon Shop items in Treasure Town.
+        
+        No params.
+    - name: GenerateKecleonItems1
       address:
         EU: 0x2010AF4
         NA: 0x2010A4C
         JP: 0x2010A1C
-      description: "Note: unverified, ported from Irdkwia's notes"
-    - name: GetKecleonItems2
+      description: |-
+        Generates the Kecleon Shop items for both shopkeepers in Treasure Town. This function also calls
+        GenerateKecleonItems2 despite GenerateKecleonItems2 being called directly after. This means that
+        any items generated for the Orb/TM shop will be overwritten by the subsequent call to
+        GenerateKecleonItems2.
+        
+        r0: kecleon_shop_version to use
+    - name: SortKecleonItems2
+      address:
+        NA: 0x2010C60
+      description: |-
+        Sorts the items for the Orb/TM Kecleon Shop items in Treasure Town.
+        
+        No params.
+    - name: GenerateKecleonItems2
       address:
         EU: 0x2010E00
         NA: 0x2010D58
         JP: 0x2010D28
-      description: "Note: unverified, ported from Irdkwia's notes"
+      description: |-
+        Generates the Kecleon Shop items for the TMs/Orbs shop in Treasure Town.
+        
+        r0: kecleon_shop_version to use
     - name: GetExclusiveItemOffset
       address:
         EU: 0x2010EE8
@@ -2337,40 +2585,163 @@ arm9:
         NA: 0x20110D8
         JP: 0x20110A8
       description: |-
-        Note: unverified, ported from Irdkwia's notes
+        Checks the bag for any exclusive item that applies to the monster or type(s) and gets the item ID.
         
         r0: excl_type
         r1: monster ID
         r2: type ID 1
         r3: type ID 2
-        return: item ID
-    - name: ProcessGinsengOverworld
+        return: exclusive item ID
+    - name: GetExclusiveItemForMonsterFromBag
+      address:
+        NA: 0x201116C
+      description: |-
+        Checks the bag for any exclusive item that applies to the monster or type(s) and copies that item
+        into the passed item struct.
+        
+        r0: [output] item_struct
+        r1: excl_type
+        r2: monster ID
+        r3: type ID 1
+        stack[0]: type ID 2
+        return: bool whether an exclusive item was found
+    - name: GetHpBoostFromExclusiveItems
+      address:
+        NA: 0x2011394
+      description: |-
+        Calculates the current HP boost from exclusive items. If none are active, return 0.
+        
+        r0: some struct that has species ID in it?
+        return: max HP boost from exclusive items
+    - name: ApplyGummiBoostsToGroundMonster
+      address:
+        NA: 0x2011528
+      description: |-
+        Applies the IQ boosts from eating a Gummi to the target monster. Basically a wrapper around
+        ApplyGummiBoostsGroundMode for struct ground_monster.
+        
+        r0: ground monster pointer
+        r1: Item ID
+        r2: bool to NOT increase stats
+        r3: [output] pointer to a struct gummi_result to fill out
+    - name: ApplyGummiBoostsToTeamMember
+      address:
+        NA: 0x2011554
+      description: |-
+        Applies the IQ boosts from eating a Gummi to the target monster. Basically a wrapper around
+        ApplyGummiBoostsGroundMode for struct team_member.
+        
+        r0: team member pointer
+        r1: Item ID
+        r2: bool to NOT increase stats
+        r3: [output] pointer to a struct gummi_result to fill out
+    - name: ApplySitrusBerryBoostToGroundMonster
+      address:
+        NA: 0x2011580
+      description: |-
+        Applies the hp boost from the Sitrus Berry to the target monster.
+        
+        r0: ground monster pointer
+        r1: [output] pointer to attempted hp boost, if not NULL
+        return: actual hp boost
+    - name: ApplyLifeSeedBoostToGroundMonster
+      address:
+        NA: 0x20115BC
+      description: |-
+        Applies the hp boost from the Life Seed to the target monster.
+        
+        r0: ground monster pointer
+        r1: [output] pointer to attempted hp boost, if not NULL
+        return: actual hp boost
+    - name: ApplyGinsengToGroundMonster
       address:
         EU: 0x20116A0
         NA: 0x20115F8
         JP: 0x20115C8
       description: |-
-        Note: unverified, ported from Irdkwia's notes
+        Attempts to apply a ginseng boost to the highest valid move that the ground monster knows.
         
-        r0: target
+        r0: ground monster pointer
         r1: [output] move ID
         r2: [output] move boost
-        return: boost
+        return: actual move boost
+    - name: ApplyProteinBoostToGroundMonster
+      address:
+        NA: 0x201170C
+      description: |-
+        Applies the attack boost from Protein to the target monster.
+        
+        r0: ground monster pointer
+        r1: [output] pointer to attempted attack boost, if not NULL
+        return: actual attack boost
+    - name: ApplyCalciumBoostToGroundMonster
+      address:
+        NA: 0x2011748
+      description: |-
+        Applies the special attack boost from Calcium to the target monster.
+        
+        r0: ground monster pointer
+        r1: [output] pointer to attempted special attack boost, if not NULL
+        return: actual special attack boost
+    - name: ApplyIronBoostToGroundMonster
+      address:
+        NA: 0x2011784
+      description: |-
+        Applies the defense boost from Iron to the target monster.
+        
+        r0: ground monster pointer
+        r1: [output] pointer to attempted defense boost, if not NULL
+        return: actual defense boost
+    - name: ApplyZincBoostToGroundMonster
+      address:
+        NA: 0x20117C0
+      description: |-
+        Applies the special defense boost from Zinc to the target monster.
+        
+        r0: ground monster pointer
+        r1: [output] pointer to attempted special defense boost, if not NULL
+        return: actual special defense boost
+    - name: ApplyNectarBoostToGroundMonster
+      address:
+        NA: 0x20117FC
+      description: |-
+        Applies the iq boost from Nectar to the target monster.
+        
+        r0: ground monster pointer
+        r1: [output] pointer to attempted iq boost, if not NULL
+        return: actual iq boost
+    - name: IsMonsterAffectedByGravelyrockGroundMode
+      address:
+        NA: 0x2011830
+      description: |-
+        Checks if the monster is Bonsly or Sudowoodo.
+        
+        r0: ground monster pointer
+        return: bool
+    - name: ApplyGravelyrockBoostToGroundMonster
+      address:
+        NA: 0x2011850
+      description: |-
+        Applies the iq boost from Gravelyrock to the target monster. Only Bonsly and Sudowoodo gain IQ from the Gravelyrock.
+        
+        r0: ground monster pointer
+        r1: [output] pointer to attempted iq boost, if not NULL
+        return: actual iq boost
     - name: ApplyGummiBoostsGroundMode
       address:
         EU: 0x2011944
         NA: 0x201189C
         JP: 0x201186C
       description: |-
-        Applies the IQ boosts from eating a Gummi to the target monster.
+        Applies the IQ boosts from eating a Gummi to the monster's data. Generally called with not increasing stats true outside of the cafe.
         
-        r0: Pointer to something
-        r1: Pointer to something
-        r2: Pointer to something
-        r3: Pointer to something
-        stack[0]: ?
-        stack[1]: ?
-        stack[2]: Pointer to a buffer to store some result into
+        r0: Pointer to monster id
+        r1: Pointer to monster iq
+        r2: Pointer to monster offensive stats
+        r3: Pointer to monster defensive stats
+        stack[0]: Item ID
+        stack[1]: bool to NOT increase stats
+        stack[2]: [output] pointer to a struct gummi_result
     - name: LoadSynthBin
       address:
         EU: 0x2012B88
@@ -4038,6 +4409,17 @@ arm9:
         NA: 0x2024428
         JP: 0x2024478
       description: "Note: unverified, ported from Irdkwia's notes"
+    - name: GetCurrentTeamNameString
+      address:
+        NA: 0x2024C6C
+      description: |-
+        Returns the current team name with a check for special episodes and story progression. If the story
+        has not progressed enough or the special episode is not for Team Charm, "???" will be displayed.
+        During the Team Charm special episode, it will return "Team Charm".
+        
+        r0: [output] Pointer to the buffer where the string will be written
+        r1: 0, 1 or 2???
+        return: Pointer to the buffer where the string was written (in other words, the same value passed in r0)
     - name: GetBagNameString
       address:
         EU: 0x20250C8
@@ -4135,16 +4517,27 @@ arm9:
         r0: dest
         r1: src
         r2: n
-    - name: SpecialStrcpy
+    - name: StrcpyName
       address:
         EU: 0x20254FC
         NA: 0x2025230
         JP: 0x20252B8
       description: |-
-        Note: unverified, ported from Irdkwia's notes
+        A special version of strcpy for handling names. Appears to use character 0x7E as some kind of
+        formatting character in NA?
         
         r0: dst
         r1: src
+    - name: StrncpyName
+      address:
+        NA: 0x2025314
+      description: |-
+        A special version of strncpy for handling names. Appears to use character 0x7E as some kind of
+        formatting character in NA? Copies at most n characters.
+        
+        r0: dst
+        r1: src
+        r2: n
     - name: GetStringFromFile
       address:
         EU: 0x2025A54
@@ -4188,6 +4581,14 @@ arm9:
         return: string from the string files with the given message ID
     - name: CopyStringFromMessageId
       address:
+        NA: 0x20258E4
+      description: |-
+        Gets the string corresponding to a given message ID and copies it to the buffer specified in r0.
+        
+        r0: Buffer
+        r1: String ID
+    - name: CopyNStringFromMessageId
+      address:
         EU: 0x2025BD8
         NA: 0x202590C
         JP: 0x20258EC
@@ -4220,6 +4621,13 @@ arm9:
         r1: group_id
         r2: restrictions
         return: ?
+    - name: IsAOrBPressed
+      address:
+        NA: 0x2025EE8
+      description: |-
+        Checks if A or B is currently being held.
+        
+        return: bool
     - name: NewDialogBox
       address:
         NA: 0x20276C0
@@ -4877,6 +5285,16 @@ arm9:
         r1: script variable ID 1
         r2: script variable ID 2
         return: true if values are equal, false otherwise
+    - name: EventFlagResume
+      address:
+        NA: 0x204BFC0
+      description: |-
+        Restores BACKUP event flag script variables (see the code for an exhaustive list) to their
+        respective script variables, but only in certain game modes.
+        
+        This function prints the debug string "EventFlag BackupGameMode %d" with the game mode.
+        
+        No params.
     - name: EventFlagBackup
       address:
         EU: 0x204C51C
@@ -5887,9 +6305,9 @@ arm9:
         NA: 0x205091C
         JP: 0x2050C68
       description: |-
-        Note: unverified, ported from Irdkwia's notes
+        Copies the string for the ability id into the buffer.
         
-        r0: buffer
+        r0: [output] buffer
         r1: ability ID
     - name: GetAbilityDescStringId
       address:
@@ -5897,7 +6315,7 @@ arm9:
         NA: 0x205093C
         JP: 0x2050C88
       description: |-
-        Note: unverified, ported from Irdkwia's notes
+        Gets the ability description string ID for the corresponding ability.
         
         r0: ability ID
         return: string ID
@@ -5911,6 +6329,15 @@ arm9:
         
         r0: type ID
         return: string ID
+    - name: GetConversion2ConvertToType
+      address:
+        NA: 0x2050964
+      description: |-
+        Determines which type a monster with Conversion2 should turn into after being hit by a certain
+        type of move.
+        
+        r0: type ID
+        return: type ID
     - name: CopyBitsTo
       address:
         EU: 0x2050CF8
@@ -5933,40 +6360,42 @@ arm9:
         r0: read_info
         r1: buffer_read
         r2: nb_bits
-    - name: StoreDefaultTeamName
+    - name: StoreDefaultTeamData
       address:
         EU: 0x2050E04
         NA: 0x2050ACC
         JP: 0x2050E18
       description: |-
-        Note: unverified, ported from Irdkwia's notes
+        Sets the name of the team for the main story to the default team name Poképals. Also initalizes
+        the team to Normal Rank and possibly set Secret Rank unlocked to false?
         
         No params.
-    - name: GetTeamNameCheck
+    - name: GetMainTeamNameWithCheck
       address:
         EU: 0x2050E48
         NA: 0x2050B10
         JP: 0x2050E60
       description: |-
-        Note: unverified, ported from Irdkwia's notes
+        Gets the name of the team for the main story with an additional check if the team name should be
+        "???" because the story has not progressed enough.
         
-        r0: buffer
-    - name: GetTeamName
+        r0: [output] buffer
+    - name: GetMainTeamName
       address:
         EU: 0x2050EB4
         NA: 0x2050B7C
         JP: 0x2050ECC
       description: |-
-        Note: unverified, ported from Irdkwia's notes
+        Gets the name of the team for the main story.
         
-        r0: buffer
-    - name: SetTeamName
+        r0: [output] buffer
+    - name: SetMainTeamName
       address:
         EU: 0x2050ECC
         NA: 0x2050B94
         JP: 0x2050EE4
       description: |-
-        Note: unverified, ported from Irdkwia's notes
+        Sets the main team name to the name in the passed buffer.
         
         r0: buffer
     - name: GetRankupPoints
@@ -5991,6 +6420,13 @@ arm9:
         If PERFORMANCE_PROGRESS_LIST[8] is 0, the maximum rank that can be returned is RANK_MASTER.
         
         return: Rank
+    - name: GetRankStorageSize
+      address:
+        NA: 0x2050CE4
+      description: |-
+        Gets the size of storage for the current rank.
+        
+        return: storage size
     - name: SubFixedPoint
       address:
         EU: 0x2051248
@@ -7286,6 +7722,27 @@ arm9:
         
         r0: ground monster pointer
         return: bool
+    - name: RemoveActiveMembersFromAllTeams
+      address:
+        NA: 0x20560C8
+      description: |-
+        Removes all of the active monsters on every type of team from the team member table.
+        
+        No params.
+    - name: RemoveActiveMembersFromSpecialEpisodeTeam
+      address:
+        NA: 0x2056158
+      description: |-
+        Removes the active monsters on the Special Episode Team from the team member table.
+        
+        No params.
+    - name: RemoveActiveMembersFromRescueTeam
+      address:
+        NA: 0x20561C0
+      description: |-
+        Removes the active monsters on the Rescue Team from the team member table.
+        
+        No params.
     - name: CheckTeamMemberIdx
       address:
         EU: 0x20565E0
@@ -7393,6 +7850,39 @@ arm9:
         Note: unverified, ported from Irdkwia's notes
         
         r0: dungeon ID
+    - name: GetIqSkillStringId
+      address:
+        NA: 0x2058C1C
+      description: |-
+        Note: unverified, ported from Irdkwia's notes
+        
+        r0: iq skill id
+        return: iq skill string id
+    - name: DoesTacticFollowLeader
+      address:
+        NA: 0x2058C3C
+      description: |-
+        Returns whether or not the tactic involves following the team leader.
+        
+        r0: tactic_id
+        return: bool
+    - name: GetUnlockedTactics
+      address:
+        NA: 0x2058C4C
+      description: |-
+        Returns an array with all the enabled tactics. TACTIC_NONE is used to fill the empty/unused entries
+        in the array.
+        
+        r0: [output] Array of tactic_ids that are enabled
+        r1: Monster level
+    - name: GetUnlockedTacticFlags
+      address:
+        NA: 0x2058C9C
+      description: |-
+        Returns an array with an entry for each tactic and if they're unlocked at the passed level.
+        
+        r0: [output] bool Array where the unlocked status of each tactic is stored
+        r1: Monster level
     - name: CanLearnIqSkill
       address:
         EU: 0x2059054
@@ -7451,6 +7941,23 @@ arm9:
         r0: Species ID
         r1: Index (starting at 0)
         return: IQ skill ID
+    - name: DisableAllIqSkills
+      address:
+        NA: 0x2058E8C
+      description: |-
+        Disables all IQ skills in the bitarray.
+        
+        r0: Pointer to the bitarray containing the list of enabled IQ skills
+    - name: EnableAllLearnableIqSkills
+      address:
+        NA: 0x2058EB0
+      description: |-
+        Attempts to enable all the IQ skills available to the monster. If there are incompatible IQ skils,
+        the one with the highest ID will be activated while the others will be inactivated.
+        
+        r0: [output] Array where the list of skills will be written
+        r1: Monster species
+        r2: Monster IQ
     - name: IqSkillFlagTest
       address:
         EU: 0x2059280
@@ -7473,6 +7980,14 @@ arm9:
         r0: Monster ID
         r1: Monster IQ
         return: ID of the next skill learned by the monster, or IQ_NONE if the monster won't learn any more skills.
+    - name: GetExplorerMazeTeamName
+      address:
+        NA: 0x2059060
+      description: |-
+        Returns the name of the explorer maze team. If the language of the team name is different from the
+        language of selected in this game a default team name is written to the buffer instead.
+        
+        r0: [output] Buffer
     - name: GetExplorerMazeMonster
       address:
         EU: 0x2059474
@@ -7548,6 +8063,37 @@ arm9:
         
         r0: ground_monster
         return: evo_status
+    - name: CopyTacticString
+      address:
+        NA: 0x205A430
+      description: |-
+        Gets the string corresponding to a given message ID and copies it to the buffer specified in r0.
+        
+        This function won't write more than 64 bytes.
+        
+        r0: [output] buffer
+        r1: tactic_id
+    - name: GetStatBoostsForMonsterSummary
+      address:
+        NA: 0x205A450
+      description: |-
+        Gets the stat boosts from held items, exclusive items, and iq skills and stores them into the
+        monster_summary struct.
+        
+        r0: monster_summary
+        r1: enum monster_id monster_id
+        r2: pointer to held item
+        r3: iq
+        stack[0]: bool if Klutz is active
+    - name: CreateMonsterSummaryFromTeamMember
+      address:
+        NA: 0x205AE28
+      description: |-
+        Creates a snapshot of the condition of a team_member struct in a monster_summary struct.
+        
+        r0: [output] monster_summary
+        r1: team_member
+        r2: bool is leader
     - name: GetSosMailCount
       address:
         EU: 0x205BCF8
