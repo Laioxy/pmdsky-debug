@@ -3,8 +3,8 @@
 
 #include "arm9/itcm.h"
 
-void SvcWaitByLoop(void);
 void SvcSoftReset(void);
+void SvcWaitByLoop(void);
 void SvcCpuSet(void);
 void _start(void);
 void MIiUncompressBackward(void);
@@ -184,6 +184,10 @@ enum move_id GetItemMoveId(enum item_id item_id);
 bool TestItemAiFlag(enum item_id item_id, int bit_id);
 bool IsItemInTimeDarkness(enum item_id item_id);
 bool IsItemValidVeneer(enum item_id item_id);
+void SetActiveInventoryToMain(void);
+void AllInventoriesZInit(void);
+void SpecialEpisodeInventoryZInit(void);
+void RescueInventoryZInit(void);
 void SetActiveInventory(enum team_id team_id);
 int GetMoneyCarried(void);
 void SetMoneyCarried(int amount);
@@ -244,6 +248,9 @@ void StorageZInit(void);
 bool AddBulkItemToStorage(struct bulk_item* bulk_item);
 bool AddItemToStorage(struct item* item);
 void SortItemsInStorage(bool* param_1, int num_items_to_sort);
+void AllKecleonShopsZInit(void);
+void SpecialEpisodeKecleonShopZInit(void);
+void SetActiveKecleonShop(enum team_id team_id);
 int GetMoneyStored(void);
 void SetMoneyStored(int amount);
 void AddMoneyStored(int amount);
@@ -369,8 +376,14 @@ enum move_category GetMoveCategory(enum move_id move_id);
 int GetPpIncrease(enum monster_id monster_id, uint32_t* iq_skill_flags);
 void OpenWaza(int waza_id);
 void SelectWaza(int waza_id);
-void SendAudioCommandWrapperVeneer(enum music_id music_id, undefined param_2, int volume);
-void SendAudioCommandWrapper(enum music_id music_id, undefined param_2, int volume);
+void PlayBgmByIdVeneer(enum music_id music_id);
+void PlayBgmByIdVolumeVeneer(enum music_id music_id, undefined param_2, int volume);
+void PlaySeVolumeWrapper(int index);
+void PlayBgmById(enum music_id music_id);
+void PlayBgmByIdVolume(enum music_id music_id, undefined param_2, int volume);
+void StopBgmCommand(void);
+void PlaySeByIdVolume(int se_id, int volume);
+void SendAudioCommand2(struct audio_command command);
 struct audio_command* AllocAudioCommand(int status);
 void SendAudioCommand(struct audio_command command);
 void InitSoundSystem(void);
@@ -378,6 +391,7 @@ void ManipBgmPlayback(void);
 void SoundDriverReset(void);
 uint32_t LoadDseFile(struct iovec* iov, const char* filename);
 undefined4 PlaySeLoad(int param_1);
+bool IsSongOver(void);
 void PlayBgm(int param_1, int param_2, int param_3);
 void StopBgm(int param_1);
 void ChangeBgm(int param_1, int param_2);
@@ -442,7 +456,7 @@ void InitRender3dData(void);
 void GeomSwapBuffers(void);
 void InitRender3dElement64(struct render_3d_element_64* element64);
 void Render3d64Texture0x7(struct render_3d_element_64* element64);
-void Render3d64Border(struct render_3d_element_64* element64);
+void Render3d64WindowFrame(struct render_3d_element_64* element64);
 void EnqueueRender3d64Tiling(struct render_3d_element_64* element64);
 void Render3d64Tiling(struct render_3d_element_64* element64);
 void Render3d64Quadrilateral(struct render_3d_element_64* element64);
@@ -496,36 +510,90 @@ void CopyNStringFromMessageId(char* buf, int string_id, int buf_len);
 void LoadTblTalk(void);
 int GetTalkLine(int personality_idx, int group_id, int restrictions);
 bool IsAOrBPressed(void);
-int NewDialogBox(struct dialog_box_hdr* hdr, uint8_t param_2);
+int NewWindowScreenCheck(struct window_params* params, uint8_t param_2);
+int NewWindow(struct window_params* params, uint8_t param_2);
 void SetScreenWindowsColor(int palette_idx, bool upper_screen);
 void SetBothScreensWindowsColor(int palette_idx);
-undefined* GetDialogBoxField0xC(int dbox_id);
+void* GetWindowContents(int window_id);
 void LoadCursors(void);
-void InitDialogBoxTrailer(struct dialog_box_trailer* trailer);
+void InitWindowTrailer(struct window_trailer* trailer);
 void LoadAlert(void);
 void PrintClearMark(int mark_id, int x, int y, undefined param_4);
-int CreateNormalMenu(undefined* layout, int menu_flags, undefined* additional_info, undefined* menu,
+int CreateParentMenu(struct window_params* params, uint32_t param_2, undefined* param_3,
+                     undefined4 param_4);
+void UpdateParentMenu(struct window* window);
+int CreateSimpleMenuWrapper(struct window_params* params, struct menu_flags menu_flags,
+                            struct menu_additional_info* menu_additional_info,
+                            struct simple_menu_option* menu_options, int option_id);
+int CreateSimpleMenu(struct window_params* params, struct menu_flags menu_flags,
+                     struct menu_additional_info* menu_additional_info, char* param_3,
                      int option_id);
-void FreeNormalMenu(int menu_id);
-bool IsNormalMenuActive(int menu_id);
-int GetNormalMenuResult(int menu_id);
-int CreateAdvancedMenu(undefined* layout, int menu_flags, undefined* additional_info,
-                       undefined* entry_fn, int n_options, int n_opt_pp);
-void FreeAdvancedMenu(int menu_id);
-bool IsAdvancedMenuActive(int menu_id);
-int GetAdvancedMenuCurrentOption(int menu_id);
-int GetAdvancedMenuResult(int menu_id);
-int CreateDBox(undefined* layout);
-void FreeDBox(int dbox_id);
-bool IsDBoxActive(int dbox_id);
-void ShowMessageInDBox(int dbox_id, struct preprocessor_flags flags, int string_id,
-                       struct preprocessor_args* args);
-void ShowDBox(int dbox_id);
-int CreatePortraitBox(undefined param_1, undefined4 param_2, int param_3);
-void FreePortraitBox(int dbox_id);
-void ShowPortraitBox(int dbox_id, struct portrait_box* portrait);
-void HidePortraitBox(int dbox_id);
+void FreeSimpleMenu(int window_id);
+bool IsSimpleMenuActive(int window_id);
+int GetSimpleMenuResult(int window_id);
+void UpdateSimpleMenu(struct window* window);
+int CreateAdvancedMenu(struct window_params* params, struct menu_flags menu_flags,
+                       struct menu_additional_info* menu_additional_info,
+                       advanced_menu_entry_fn_t* entry_fn, int n_options, int n_opt_per_page);
+void FreeAdvancedMenu(int window_id);
+bool IsAdvancedMenuActive(int window_id);
+int GetAdvancedMenuCurrentOption(int window_id);
+int GetAdvancedMenuResult(int window_id);
+void UpdateAdvancedMenu(struct window* window);
+int CreateCollectionMenu(struct window_params* params, uint32_t param_2, undefined* param_3,
+                         undefined* param_4, undefined4 param_5, int param_6, int param_7);
+void UpdateCollectionMenu(struct window* window);
+int CreateOptionsMenu(struct window_params* params, uint32_t param_2, undefined* param_3,
+                      undefined* param_4, int param_5, undefined4* param_6);
+void UpdateOptionsMenu(struct window* window);
+int CreateDebugMenu(struct window_params* params, uint32_t param_2, undefined* param_3,
+                    uint16_t param_4, int param_5, undefined* param_6);
+void UpdateDebugMenu(struct window* window);
+int CreateScrollBox1(struct window_params* params, uint32_t param_2, undefined* param_3,
+                     uint16_t param_4, undefined* param_5, uint16_t param_6, undefined* param_7);
+int CreateScrollBox2(struct window_params* params, uint32_t param_2, undefined* param_3,
+                     int param_4, uint16_t* param_5, undefined* param_6, uint16_t* param_7,
+                     undefined* param_8);
+void UpdateScrollBox(struct window* window);
+int CreateDialogueBox(struct window_params* params);
+void FreeDialogueBox(int window_id);
+bool IsDialogueBoxActive(int window_id);
+void ShowMessageInDialogueBox(int window_id, struct preprocessor_flags flags, int string_id,
+                              struct preprocessor_args* args);
+void ShowStringInDialogueBox(int window_id, struct preprocessor_flags flags, char* string,
+                             struct preprocessor_args* args);
+void ShowDialogueBox(int window_id);
+void UpdateDialogueBox(struct window* window);
+int CreatePortraitBox(enum screen screen, uint32_t palette_idx, bool framed);
+void FreePortraitBox(int window_id);
+void ShowPortraitBox(int window_id, struct portrait_box* portrait);
+void HidePortraitBox(int window_id);
+void UpdatePortraitBox(struct window* window);
+int CreateTextBox1(struct window_params* params, undefined4 param_2);
+int CreateTextBox2(struct window_params* params, undefined4 param_2, undefined4 param_3);
+struct text_box* CreateTextBoxInternal(struct window_params* params);
+void UpdateTextBox(struct window* window);
+int CreateDynamicTextBox(struct window_params* params, uint32_t param_2, undefined* param_3,
+                         uint32_t id);
+void UpdateDynamicTextBox(struct window* window);
+int CreateControlsChart(struct window_params* params, undefined4 param_2, undefined* param_3,
+                        uint16_t param_4);
+void UpdateControlsChart(struct window* window);
+int CreateAlertBox(struct window_params* params);
+void UpdateAlertBox(struct window* window);
+int CreateAdvancedTextBox1(struct window_params* params, uint32_t param_2, undefined* param_3,
+                           undefined4 param_4, undefined4 param_5);
+int CreateAdvancedTextBox2(struct window_params* params, uint32_t param_2, undefined* param_3,
+                           undefined4 param_4, undefined4 param_5, undefined4 param_6);
+struct advanced_text_box* CreateAdvancedTextBoxInternal(struct window_params* params,
+                                                        uint32_t param_2, undefined* param_3,
+                                                        undefined4 param_4, int param_5);
+void UpdateAdvancedTextBox(struct window* window);
+int CreateTeamSelectionMenu(struct window_params* params, uint32_t param_2, undefined* param_3,
+                            undefined* param_4, int param_5, int param_6);
+void UpdateTeamSelectionMenu(struct window* window);
 bool IsMenuOptionActive(undefined* param_1);
+void PlayMenuOptionSound(undefined* param_1, int index);
 int ShowKeyboard(int message_id, char* buffer1, int param_3, char* buffer2);
 int GetKeyboardStatus(void);
 int GetKeyboardStringResult(void);
@@ -534,10 +602,11 @@ void PrintIqSkillsMenu(enum monster_id monster_id, uint32_t* iq_skills_flags, in
                        bool is_blinded);
 bool GetNotifyNote(void);
 void SetNotifyNote(bool flag);
+void InitSpecialEpisodeHero(void);
 void EventFlagBackupVeneer(void);
 void InitMainTeamAfterQuiz(void);
-void ScriptSpecialProcess0x3(void);
-void ScriptSpecialProcess0x4(void);
+void InitSpecialEpisodePartners(void);
+void InitSpecialEpisodeExtraPartner(void);
 void ReadStringSave(char* buf);
 bool CheckStringSave(const char* buf);
 int WriteSaveFile(undefined* save_info, undefined* buf, int size);
@@ -813,6 +882,8 @@ bool IsMonsterIdInNormalRange(enum monster_id monster_id);
 void SetActiveTeam(enum team_id team_id);
 struct team_member* GetActiveTeamMember(int roster_idx);
 int GetActiveRosterIndex(int member_idx);
+int TryAddMonsterToActiveTeam(int member_idx);
+void RemoveActiveMembersFromMainTeam(void);
 void SetTeamSetupHeroAndPartnerOnly(void);
 void SetTeamSetupHeroOnly(void);
 int GetPartyMembers(uint16_t* party_members);
@@ -875,17 +946,20 @@ bool CanSendItem(enum item_id item_id, bool to_sky);
 bool IsAvailableItem(enum item_id item_id);
 int GetAvailableItemDeliveryList(undefined* item_buffer);
 int GetActorMatchingStorageId(int actor_id);
-void ScriptSpecialProcess0x3D(void);
-void ScriptSpecialProcess0x3E(void);
-void ScriptSpecialProcess0x17(void);
+void SetActorTalkMainAndActorTalkSub(int actor_id_main, int actor_id_sub);
+void SetActorTalkMain(int actor_id);
+void SetActorTalkSub(int actor_id);
+void RandomizeDemoActors(void);
 void ItemAtTableIdx(int idx, struct bulk_item* item);
 void MainLoop(void);
 int DungeonSwapIdToIdx(enum dungeon_id dungeon_id);
 enum dungeon_id DungeonSwapIdxToId(int idx);
 enum dungeon_mode GetDungeonModeSpecial(enum dungeon_id dungeon_id);
+void* ReadWaviEntry(struct wavi_data* wavi_data, int entry_index);
 int ResumeBgm(undefined4 param_1, undefined4 param_2, undefined4 param_3);
+void* FindSmdlSongChunk(void* smdl_data, uint16_t value_to_search);
 int FlushChannels(undefined* param_1, int param_2, int param_3);
-void ParseDseEvents(undefined4 param_1, int param_2, undefined4 param_3, undefined4 param_4);
+void ParseDseEvent(undefined* audio_state, struct track_data* track_data);
 void UpdateSequencerTracks(int param_1, undefined4 param_2, undefined4 param_3, undefined4 param_4);
 void UpdateChannels(void);
 void UpdateTrackVolumeEnvelopes(undefined* param_1);
@@ -894,12 +968,14 @@ void EnableVramBanksInSet(struct vram_banks_set* vram_banks);
 void GeomMtxLoad4x3(struct matrix_4x3* matrix);
 void GeomMtxMult4x3(struct matrix_4x3* matrix);
 void GeomGxFifoSendMtx4x3(struct matrix_4x3* matrix, void* gxfifo);
+uint16_t GetTimer0Control(void);
 int ClearIrqFlag(void);
 int EnableIrqFlag(void);
 int SetIrqFlag(int new_value);
 int EnableIrqFiqFlags(void);
 int SetIrqFiqFlags(int new_value);
 int GetIrqFlag(void);
+int GetProcessorMode(void);
 void WaitForever2(void);
 void WaitForInterrupt(void);
 void ArrayFill16(uint16_t val, void* ptr, int len);
@@ -912,6 +988,9 @@ void MemsetFast(void* ptr, char val, uint32_t len);
 void MemcpyFast(void* src, void* dest, uint32_t n);
 uint32_t AtomicExchange(uint32_t desired, void* ptr);
 void FileInit(struct file_stream* file);
+bool GetOverlayInfo(struct overlay_info_entry* overlay_info, undefined param_2, int overlay_id);
+bool LoadOverlayInternal(struct overlay_info_entry* overlay_info);
+void InitOverlay(struct overlay_info_entry* overlay_info);
 
 // If declaring these builtins causes issues, you can disable them
 #ifndef PMDSKY_NO_BUILTIN

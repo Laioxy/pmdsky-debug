@@ -9,6 +9,7 @@
 #include "file_io.h"
 #include "graphics.h"
 #include "../files/wan.h"
+#include "window.h"
 
 // Parameters used by the NitroSDK to read the ROM.
 struct start_module_params {
@@ -128,6 +129,19 @@ struct overlay_load_entry {
 };
 ASSERT_SIZE(struct overlay_load_entry, 16);
 
+// Struct containing information about an overlay. The entries are copied from y9.bin.
+struct overlay_info_entry {
+    int overlay_id;                // 0x0
+    int ram_address;               // 0x4
+    int size;                      // 0x8
+    int bss_size;                  // 0xC: Size of BSS data region
+    int static_init_start_address; // 0x10
+    int static_init_end_address;   // 0x14
+    int file_id;                   // 0x18: File ID of this overlay in the ROM's FAT
+    int unused;                    // 0x1C: Always zero
+};
+ASSERT_SIZE(struct overlay_info_entry, 32);
+
 // This seems to be a simple structure used with utility functions related to managing items
 // in bulk, such as in the player's bag, storage, and Kecleon shops.
 struct bulk_item {
@@ -135,176 +149,6 @@ struct bulk_item {
     uint16_t quantity; // Definitely in some contexts, but not verified in all
 };
 ASSERT_SIZE(struct bulk_item, 4);
-
-// Placeholder name; not sure what this struct is
-struct dialog_box_hdr {
-    undefined field_0x0;
-    undefined field_0x1;
-    undefined field_0x2;
-    undefined field_0x3;
-    undefined field_0x4;
-    undefined field_0x5;
-    uint8_t field_0x6;
-    uint8_t field_0x7;
-    uint8_t field_0x8;
-    int8_t field_0x9;
-    undefined field_0xa;
-    undefined field_0xb;
-    undefined* field_0xc; // some struct pointer
-};
-ASSERT_SIZE(struct dialog_box_hdr, 16);
-
-// Placeholder name; not sure what this struct is
-struct dialog_box_trailer {
-    int field_0x0;
-    uint8_t field_0x4;
-    undefined field_0x5;
-    undefined field_0x6;
-    undefined field_0x7;
-    undefined field_0x8;
-    undefined field_0x9;
-    undefined field_0xa;
-    undefined field_0xb;
-    undefined field_0xc;
-    undefined field_0xd;
-    undefined field_0xe;
-    undefined field_0xf;
-    undefined field_0x10;
-    undefined field_0x11;
-    undefined field_0x12;
-    undefined field_0x13;
-    undefined field_0x14;
-    undefined field_0x15;
-    undefined field_0x16;
-    undefined field_0x17;
-    uint8_t field_0x18;
-    uint8_t field_0x19;
-    // Not actually sure where this struct ends; these might just be part of the parent dialog_box
-    undefined field_0x1a;
-    undefined field_0x1b;
-    undefined field_0x1c;
-    undefined field_0x1d;
-    undefined field_0x1e;
-    undefined field_0x1f;
-    undefined field_0x20;
-    undefined field_0x21;
-    undefined field_0x22;
-    undefined field_0x23;
-};
-ASSERT_SIZE(struct dialog_box_trailer, 36);
-
-// Structure for dialog boxes?
-struct dialog_box {
-    struct dialog_box_hdr hdr; // 0x0
-    uint8_t field_0x10;
-    uint8_t field_0x11;
-    uint16_t field_0x12;
-    // Some heap-allocated struct pointer with size (hdr.field_0x7 * hdr.field_0x6 * 0x40)
-    undefined* field_0x14;
-    int field_0x18;
-    int field_0x1c; // hdr.field_0x6 * hdr.field_0x7 * 0x40
-    uint32_t field_0x20;
-    undefined field_0x24;
-    undefined field_0x25;
-    undefined field_0x26;
-    undefined field_0x27;
-    int field_0x28;
-    undefined field_0x2c;
-    undefined field_0x2d;
-    undefined field_0x2e;
-    undefined field_0x2f;
-    uint16_t field_0x30;
-    undefined field_0x32;
-    undefined field_0x33;
-    struct render_3d_element_64 backdrop; // 0x34: type RENDER64_RECTANGLE
-    struct render_3d_element_64 border;   // 0x74: type RENDER64_BORDER
-    uint8_t field_0xb4;
-    undefined field_0xb5;
-    int8_t valid; // 0xB6
-    uint8_t field_0xb7;
-    int32_t field_0xb8;
-    struct dialog_box_trailer trailer; // 0xBC
-};
-ASSERT_SIZE(struct dialog_box, 224);
-
-struct dialog_box_list {
-    struct dialog_box boxes[20];
-};
-ASSERT_SIZE(struct dialog_box_list, 4480);
-
-// Represents the state of a portrait to be displayed inside a dialogue box
-struct portrait_box {
-    struct monster_id_16 monster_id; // 0x0: The species id, or the set index inside kaomado.kao
-    // 0x2: Index of the emote in the species set of portraits
-    struct portrait_emotion_8 portrait_emotion;
-    uint8_t layout_idx; // 0x3: Represents the current layout to display the portrait
-    uint32_t offset_x;  // 0x4: Tile offset (x / 8) in the X axis to draw the portrait
-    uint32_t offset_y;  // 0x8: Tile offset (y / 8) in the Y axis to draw the portrait
-    bool try_flip;      // 0xC: Whether to try to get a flipped portrait from kaomado.kao
-    bool has_flip;      // 0xD: Whether the specified emote has a flipped variant
-    bool hw_flip;       // 0xE: Whether the portrait should be flipped using the hardware
-    bool allow_default; // 0xF: If true, try using emote index 0 if the desired emote can't be found
-};
-ASSERT_SIZE(struct portrait_box, 16);
-
-// Identifies a default position for a portrait, as well as whether it'll be flipped
-struct portrait_layout {
-    int16_t offset_x;
-    int16_t offset_y;
-    bool try_flip;
-    uint8_t _padding;
-};
-ASSERT_SIZE(struct portrait_layout, 6);
-
-// Holds portrait image data loaded from kaomado.kao.
-// See https://projectpokemon.org/home/docs/mystery-dungeon-nds/kaomadokao-file-format-r54/
-struct kaomado_buffer {
-    struct rgb palette[16];    // Buffer to load the palette of the portrait
-    uint8_t at4px_buffer[800]; // Buffer to load the portrait image data
-};
-ASSERT_SIZE(struct kaomado_buffer, 848);
-
-// Stores data and state for a specialized Kaomado canvas for rendering portraits
-struct portrait_canvas {
-    uint8_t canvas_handle;
-    uint8_t _padding_0x1;
-    uint8_t _padding_0x2;
-    uint8_t _padding_0x3;
-    enum portrait_canvas_state state;
-    // The buffer_state is the one that receives and stores any commits,
-    // but render_state is only set to the value of buffer_state during
-    // the Kaomado canvas update function
-    struct portrait_box render_state;
-    struct portrait_box buffer_state;
-    bool updated;
-    bool hide;
-    bool framed;
-    uint8_t _padding_0x2b;
-    uint32_t palette_idx;
-    struct kaomado_buffer buffer;
-};
-ASSERT_SIZE(struct portrait_canvas, 896);
-
-// These flags are shared with the function to display text inside message boxes
-// So they might need a rename once more information is found
-struct preprocessor_flags {
-    uint16_t unknown0 : 13;
-    bool show_speaker : 1;
-    uint32_t unknown18 : 18;
-};
-ASSERT_SIZE(struct preprocessor_flags, 4);
-
-// Represents arguments that might be passed to the PreprocessString function
-struct preprocessor_args {
-    uint32_t flag_vals[4];  // 0x0: These are usually IDs with additional flags attached to them
-    uint32_t id_vals[5];    // 0x10
-    int32_t number_vals[5]; // 0x24
-    char* strings[5];       // 0x38
-    // 0x4C: An optional argument that is used to insert the name of a Pokémon
-    // When they're talking through a message box. It requires it's respective flag to be on
-    uint32_t speaker_id;
-};
-ASSERT_SIZE(struct preprocessor_args, 80);
 
 // Type matchup table, not including TYPE_NEUTRAL.
 // Note that Ghost's immunities seem to be hard-coded elsewhere. In this table, both Normal and
@@ -488,9 +332,12 @@ struct team_member_table {
     // 0x984C: Pointer into active_team_rosters for the currently active team, i.e.,
     // &active_team_rosters[active_team]
     struct team_member* active_roster;
-    undefined2 field_0x9850; // Related to TEAM_MAIN (Guess)
-    undefined2 field_0x9852; // Related to TEAM_SPECIAL_EPISODE
-    undefined2 field_0x9854; // Related to TEAM_RESCUE
+    // 0x9850: Number of active members on TEAM_MAIN
+    int16_t number_active_team_members_main;
+    // 0x9852: Number of active members on TEAM_SPECIAL_EPISODE
+    int16_t number_active_team_members_se;
+    // 0x9854: Number of active members on TEAM_RESCUE
+    int16_t number_active_team_members_rescue;
     // 0x9856: member indexes (into the members array) for the active rosters of each team
     int16_t active_team_roster_member_idxs[3][4];
     undefined field_0x986e;
@@ -1097,6 +944,53 @@ struct audio_command {
     undefined field_0x1F;
 };
 ASSERT_SIZE(struct audio_command, 32);
+
+// Contains data for an audio track that is being played
+struct track_data {
+    undefined field_0x0;
+    undefined field_0x1;
+    bool active; // 0x2: True if the track is active
+    undefined field_0x3;
+    undefined field_0x4;
+    undefined field_0x5;
+    undefined field_0x6;
+    undefined field_0x7;
+    int play_amount; // 0x8: Number of times the track has been played so far
+    // 0xC: Delay (in frames, probably) before the next DSE event on this track begins
+    int event_delay;
+    undefined field_0x10;
+    undefined field_0x11;
+    undefined field_0x12;
+    undefined field_0x13;
+    undefined field_0x14;
+    undefined field_0x15;
+    undefined field_0x16;
+    undefined field_0x17;
+    void* track_data_start; // 0x18: Pointer to the start of the track's audio data
+    void* current_event;    // 0x1C: Pointer to the current DSE event
+};
+ASSERT_SIZE(struct track_data, 32); // Exact size hasn't been confirmed
+
+// Data about a wavi container
+struct wavi_data {
+    undefined field_0x0;
+    undefined field_0x1;
+    undefined field_0x2;
+    undefined field_0x3;
+    undefined field_0x4;
+    undefined field_0x5;
+    undefined field_0x6;
+    undefined field_0x7;
+    int16_t num_entries; // 0x8: Number of entries in the container
+    undefined field_0xA;
+    undefined field_0xB;
+    undefined field_0xC;
+    undefined field_0xD;
+    undefined field_0xE;
+    undefined field_0xF;
+    void* pointer_table_start; // 0x10: Pointer to the start of the pointer table
+};
+ASSERT_SIZE(struct wavi_data, 20); // Likely longer
 
 // TODO: Add more data file structures, as convenient or needed, especially if the load address
 // or pointers to the load address are known.
