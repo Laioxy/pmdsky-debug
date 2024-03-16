@@ -8,6 +8,7 @@
 #include "../dungeon_mode/dungeon_mode_common.h"
 #include "file_io.h"
 #include "graphics.h"
+#include "sound.h"
 #include "../files/wan.h"
 #include "window.h"
 
@@ -791,14 +792,15 @@ struct mission {
     uint8_t floor;                  // 0x5
     undefined field_0x6;            // Likely padding
     undefined field_0x7;            // Likely padding
-    int field_0x8;                  // 0x8, changing it seems to affect the text of the mission
-    undefined field_0xc;
+    // 0x8: changing it seems to affect the text of the mission, maybe a string ID?
+    int description_id;
+    uint8_t unique_map_id; // 0xC: for challenges/treasure hunts/certain outlaws
     undefined field_0xd;
-    struct monster_id_16 client; // 0xE
-    struct monster_id_16 target; // 0x10
-    int16_t field_0x12;
-    int16_t field_0x14;
-    struct mission_reward_type_8 reward_type; // 0x16
+    struct monster_id_16 client;                // 0xE
+    struct monster_id_16 target;                // 0x10
+    struct monster_id_16 outlaw_backup_species; // 0x12
+    struct item_id_16 item_wanted;              // 0x14
+    struct mission_reward_type_8 reward_type;   // 0x16
     undefined field_0x17;
     struct item_id_16 item_reward;                      // 0x18
     struct mission_restriction_type_8 restriction_type; // 0x1A
@@ -912,87 +914,37 @@ struct vram_banks_set {
 };
 ASSERT_SIZE(struct vram_banks_set, 2);
 
-// Used as a parameter to SendAudioCommand. Includes data on which audio to play and how.
-struct audio_command {
-    // 0x0: Seems to be a value that marks the status of this entry. It's probably an enum, maybe a
-    // command ID. Seems to be 0 when the entry is not in use.
-    int status;
-    struct music_id_16 music_id; // 0x4: ID of the music to play
-    uint16_t volume;             // 0x6: Volume (0-255)
-    undefined2 field_0x8;
-    undefined field_0xA;
-    undefined field_0xB;
-    undefined field_0xC;
-    undefined field_0xD;
-    undefined field_0xE;
-    undefined field_0xF;
-    undefined field_0x10;
-    undefined field_0x11;
-    undefined field_0x12;
-    undefined field_0x13;
-    undefined field_0x14;
-    undefined field_0x15;
-    undefined field_0x16;
-    undefined field_0x17;
-    undefined field_0x18;
-    undefined field_0x19;
-    undefined field_0x1A;
-    undefined field_0x1B;
-    undefined field_0x1C;
-    undefined field_0x1D;
-    undefined field_0x1E;
-    undefined field_0x1F;
-};
-ASSERT_SIZE(struct audio_command, 32);
-
-// Contains data for an audio track that is being played
-struct track_data {
-    undefined field_0x0;
-    undefined field_0x1;
-    bool active; // 0x2: True if the track is active
-    undefined field_0x3;
-    undefined field_0x4;
-    undefined field_0x5;
-    undefined field_0x6;
-    undefined field_0x7;
-    int play_amount; // 0x8: Number of times the track has been played so far
-    // 0xC: Delay (in frames, probably) before the next DSE event on this track begins
-    int event_delay;
-    undefined field_0x10;
-    undefined field_0x11;
-    undefined field_0x12;
-    undefined field_0x13;
-    undefined field_0x14;
-    undefined field_0x15;
-    undefined field_0x16;
-    undefined field_0x17;
-    void* track_data_start; // 0x18: Pointer to the start of the track's audio data
-    void* current_event;    // 0x1C: Pointer to the current DSE event
-};
-ASSERT_SIZE(struct track_data, 32); // Exact size hasn't been confirmed
-
-// Data about a wavi container
-struct wavi_data {
-    undefined field_0x0;
-    undefined field_0x1;
-    undefined field_0x2;
-    undefined field_0x3;
-    undefined field_0x4;
-    undefined field_0x5;
-    undefined field_0x6;
-    undefined field_0x7;
-    int16_t num_entries; // 0x8: Number of entries in the container
-    undefined field_0xA;
-    undefined field_0xB;
-    undefined field_0xC;
-    undefined field_0xD;
-    undefined field_0xE;
-    undefined field_0xF;
-    void* pointer_table_start; // 0x10: Pointer to the start of the pointer table
-};
-ASSERT_SIZE(struct wavi_data, 20); // Likely longer
-
 // TODO: Add more data file structures, as convenient or needed, especially if the load address
 // or pointers to the load address are known.
+
+// State of the screen fade in all other modes except dungeon mode
+struct screen_fade {
+    undefined field0_0x0;
+    undefined field1_0x1;
+    undefined field2_0x2;
+    undefined field3_0x3;
+    enum fade_status status; // 0x4
+    int remaining_frames;    // 0x8
+    // 0xC: Initial duration of the fade in frames
+    int duration;
+    // 0x10: What brightness the fade ends at. 256 means fade to white, -256 means fade to black
+    int16_t target_delta_brightness;
+    // 0x12: Max absolute value of the brightness during the fade. 256 means a full fade
+    int16_t max_brightness;
+    // 0x14: Current brightness of the fade. Positive numbers turn the screen white, negative to
+    // black
+    int16_t delta_brightness;
+    int16_t _padding;
+};
+ASSERT_SIZE(struct screen_fade, 24);
+
+// The file timer. Counts every frame spent on the file, except loading, lag, saving and being
+// in the main menu.
+struct play_time {
+    uint32_t seconds; // 0x0
+    uint8_t frames;   // 0x4
+    uint8_t _padding[3];
+};
+ASSERT_SIZE(struct play_time, 8);
 
 #endif

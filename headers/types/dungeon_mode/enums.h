@@ -731,6 +731,8 @@ enum mission_type {
     MISSION_ARREST_OUTLAW = 10,
     MISSION_CHALLENGE_REQUEST = 11,
     MISSION_TREASURE_MEMO = 12,
+    MISSION_TYPE_UNK_0xD = 13,
+    MISSION_SPECIAL_EPISODE = 14,
 };
 
 // This is usually stored as an 8-bit integer
@@ -1389,6 +1391,55 @@ enum item_index_special {
 union item_index {
     int bag_index;                         // For items in the bag
     enum item_index_special special_index; // For other items
+};
+
+// Determines the color of damage numbers displayed above a monster
+// Values of this enum are actually passed to I/O registers, so the color probably depends on the
+// color pallettes that are currently loaded in memory.
+enum number_color {
+    NUMBER_COLOR_AUTO = -1,
+    NUMBER_COLOR_GREEN_0x0 = 0,
+    NUMBER_COLOR_RED_0x1 = 1,
+    NUMBER_COLOR_DARK_GREEN = 2,
+    NUMBER_COLOR_YELLOW = 3,
+    NUMBER_COLOR_UNK_0x4 = 4,
+    NUMBER_COLOR_UNK_0x5 = 5,
+    NUMBER_COLOR_RED_0x6 = 6,
+    NUMBER_COLOR_UNK_0x7 = 7,
+    NUMBER_COLOR_UNK_0x8 = 8,
+    NUMBER_COLOR_UNK_0x9 = 9,
+    NUMBER_COLOR_GREEN_0xA = 10,
+    NUMBER_COLOR_LIGHT_BLUE = 11,
+};
+
+// Used in top_screen_status to store what kind of fade the screen is currently in, if any.
+enum top_screen_fade_status {
+    TOP_SCREEN_FADE_0x0 = 0,
+    TOP_SCREEN_FADE_0x1 = 1,
+    TOP_SCREEN_FADE_BLACK = 2,
+    TOP_SCREEN_FADE_0x3 = 3,
+    TOP_SCREEN_FADE_FADE_IN = 4,
+    TOP_SCREEN_FADE_NO_FADE = 5,
+    TOP_SCREEN_FADE_FADE_OUT = 6,
+};
+
+// Top screen type as set in the settings
+enum top_screen_type {
+    TOP_SCREEN_TYPE_TEXT_LOG = 0,
+    TOP_SCREEN_TYPE_TEAM_STATS = 1,
+    TOP_SCREEN_TYPE_CONTROLS = 2,
+    TOP_SCREEN_TYPE_MAP_AND_TEAM = 3,
+    TOP_SCREEN_TYPE_JOB = 4,
+};
+
+// Used in dungeon_fade to store what kind of fade a screen is currently in, if any.
+enum fade_status_dungeon {
+    DUNGEON_FADE_0x0 = 0,
+    DUNGEON_FADE_NONE = 1,
+    DUNGEON_FADE_IN = 2,
+    DUNGEON_FADE_OUT = 3,
+    DUNGEON_FADE_0x4 = 4,
+    DUNGEON_FADE_0x5 = 5,
 };
 
 #endif

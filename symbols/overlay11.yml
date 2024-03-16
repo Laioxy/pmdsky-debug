@@ -279,6 +279,15 @@ overlay11:
         Implements SPECIAL_PROC_0x16 (see ScriptSpecialProcessCall).
         
         r0: bool
+    - name: IsScreenFadeInProgress
+      address:
+        EU: 0x22EA8B8
+        NA: 0x22E9F78
+        JP: 0x22EB5AC
+      description: |-
+        Used for example in the handler functions of the top screen types in ground mode to check whether the top screen fade is complete or not.
+        
+        return: True if the top screen is still fading, false if it's done fading.
     - name: LoadBackgroundAttributes
       address:
         EU: 0x22EC480
@@ -487,18 +496,79 @@ overlay11:
       address:
         EU: 0x22FF834
         NA: 0x22FEE94
+        JP: 0x23004FC
       description: |-
         Creates a window containing team information (rank and money carried) for the top-level menu in ground mode. Also see struct team_info_box.
         
+        The new window will always default to TEAM_INFO_BOX_DEFAULT_WINDOW_PARAMS.
+        
         return: window_id
+    - name: CloseTeamInfoBox
+      address:
+        EU: 0x22FF8EC
+        NA: 0x22FEF4C
+        JP: 0x23005B4
+      description: |-
+        Closes a window created with CreateTeamInfoBox.
+        
+        r0: window_id
+    - name: IsTeamInfoBoxActive
+      address:
+        EU: 0x22FF924
+        NA: 0x22FEF84
+        JP: 0x23005EC
+      description: |-
+        This is a guess.
+        
+        Checks if the state of a team info box is not 5.
+        
+        r0: window_id
+        return: bool
     - name: UpdateTeamInfoBox
       address:
         EU: 0x22FF944
         NA: 0x22FEFA4
+        JP: 0x230060C
       description: |-
         Window update function for team info boxes.
         
         r0: window pointer
+    - name: CreateTopGroundMenu
+      address:
+        EU: 0x2301724
+        NA: 0x2300D88
+        JP: 0x23023DC
+      description: |-
+        Creates a parent menu (containing Items, Team, etc.) and two other windows upon pressing X in the overworld.
+        
+        return: always 1
+    - name: CloseTopGroundMenu
+      address:
+        EU: 0x2301890
+        NA: 0x2300EF4
+        JP: 0x2302548
+      description: |-
+        Closes the three windows created by CreateOverworldMenu.
+        
+        No params.
+    - name: UpdateTopGroundMenu
+      address:
+        EU: 0x23018EC
+        NA: 0x2300F50
+        JP: 0x23025A4
+      description: |-
+        Window update function for the top-level ground mode menu.
+        
+        return: status code
+    - name: IsBagNotEmpty
+      address:
+        EU: 0x2305460
+        NA: 0x2304AC4
+        JP: 0x2306128
+      description: |-
+        Checks if the bag has at least one valid item. Notably used in CreateTopGroundMenu to decide if the "Items" option should be enabled.
+        
+        return: bool
     - name: SprintfStatic
       address:
         EU: 0x2309868
@@ -521,6 +591,17 @@ overlay11:
         
         r0: ?
         r1: ?
+    - name: HandleControlsTopScreenGround
+      address:
+        EU: 0x230EFB4
+        NA: 0x230E618
+        JP: 0x230FBC4
+      description: |-
+        Handles the controls top screen display in the overworld.
+        
+        For some reason the implementation seems considerably jankier in ground mode. In dungeon mode there's this structure for the top screen that has handlers for creating, updating and closing the various top screen layouts in a sort of polymorphic way. Here there's just a separate function for every layout that gets called every frame and seems to have a switch-case to handle everything about it.
+        
+        No params.
     - name: GetDungeonMapPos
       address:
         EU: 0x230F6E4
@@ -561,6 +642,17 @@ overlay11:
         JP: 0x2314FFC
       description: |-
         Implements SPECIAL_PROC_STATUS_UPDATE (see ScriptSpecialProcessCall).
+        
+        No params.
+    - name: HandleTeamStatsGround
+      address:
+        EU: 0x23144BC
+        NA: 0x2313ADC
+        JP: 0x2315040
+      description: |-
+        Handles the team stats top screen display in the overworld.
+        
+        For some reason the implementation seems considerably jankier in ground mode. In dungeon mode there's this structure for the top screen that has handlers for creating, updating and closing the various top screen layouts in a sort of polymorphic way. Here there's just a separate function for every layout that gets called every frame and seems to have a switch-case to handle everything about it.
         
         No params.
   data:
@@ -731,6 +823,13 @@ overlay11:
         Table that associates the parameter of the SetAnimation scripting opcode to animation data.
         
         The first entry is unused and has a value of 0xFFFF.
+    - name: TEAM_INFO_BOX_DEFAULT_WINDOW_PARAMS
+      address:
+        EU: 0x2322F8C
+        NA: 0x232245C
+      length:
+        NA: 0x10
+      description: Default window_params for a team_info_box.
     - name: OVERLAY11_OVERLAY_LOAD_TABLE
       address:
         EU: 0x2323B9C

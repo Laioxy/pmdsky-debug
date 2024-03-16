@@ -389,6 +389,8 @@ ram:
         
         Controls the text and map location during the "map cutscene" just before entering a dungeon, as well as the actual dungeon loaded afterwards.
         
+        This field is actually part of a larger struct that also contains PENDING_STARTING_FLOOR.
+        
         type: struct dungeon_id_8
     - name: PENDING_STARTING_FLOOR
       address:
@@ -461,6 +463,24 @@ ram:
         See the comments on struct team_member_table for more information.
         
         type: struct team_member_table
+    - name: DRIVER_WORK
+      address:
+        EU: 0x22B7C70
+        NA: 0x22B7330
+    - name: DISP_MODE
+      address:
+        EU: 0x22B9EC8
+        NA: 0x22B9588
+      length:
+        EU: 0x2
+        NA: 0x2
+    - name: GXI_VRAM_LOCK_ID
+      address:
+        EU: 0x22B9ECA
+        NA: 0x22B958A
+      length:
+        EU: 0x2
+        NA: 0x2
     - name: ENABLED_VRAM_BANKS
       address:
         EU: 0x22B9ECC
@@ -472,6 +492,25 @@ ram:
         Bitset of enabled VRAM banks
         
         type: vram_banks_set
+    - name: SUB_BG_EXT_PLTT
+      address:
+        EU: 0x22B9EE8
+        NA: 0x22B95A8
+      length:
+        EU: 0x4
+        NA: 0x4
+    - name: CLR_IMG
+      address:
+        EU: 0x22B9F04
+        NA: 0x22B95C4
+      length:
+        EU: 0x4
+        NA: 0x4
+    - name: THREAD_INFO_STRUCT
+      address:
+        EU: 0x22B9F88
+        NA: 0x22B9648
+      description: thread_info struct that contains global state about threads
     - name: FRAMES_SINCE_LAUNCH_TIMES_THREE
       address:
         EU: 0x22BA304

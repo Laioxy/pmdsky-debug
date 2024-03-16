@@ -2,15 +2,16 @@
 #define HEADERS_FUNCTIONS_ARM9_H_
 
 #include "arm9/itcm.h"
+#include "arm9/libs.h"
 
-void SvcSoftReset(void);
-void SvcWaitByLoop(void);
-void SvcCpuSet(void);
+void Svc_SoftReset(void);
+void Svc_WaitByLoop(void);
+void Svc_CpuSet(void);
 void _start(void);
-void MIiUncompressBackward(void);
+void MIi_UncompressBackward(void);
 void do_autoload(void);
 void StartAutoloadDoneCallback(void);
-void OSiReferSymbol(void);
+void OSi_ReferSymbol(void);
 void NitroMain(void);
 void InitMemAllocTable(void);
 void SetMemAllocatorParams(get_alloc_arena_fn_t get_alloc_arena,
@@ -98,6 +99,9 @@ void FileSeek(struct file_stream* file, int offset, int whence);
 void FileClose(struct file_stream* file);
 void UnloadFile(void* ptr);
 void LoadFileFromRom(struct iovec* iov, const char* filepath, uint32_t flags);
+void UpdateFadeStatus(struct screen_fade* fstruct, int param_2, int duration);
+bool HandleFades(struct screen_fade* fstruct);
+int GetFadeStatus(struct screen_fade* fstruct);
 void InitDebug(void);
 void InitDebugFlag(void);
 bool GetDebugFlag(enum debug_flag flag);
@@ -479,14 +483,14 @@ int GetAtSize(undefined* at_ptr, int param_2);
 int GetLanguageType(void);
 int GetLanguage(void);
 bool StrcmpTag(const char* s1, const char* s2);
-int StoiTag(const char* s);
+int AtoiTag(const char* s);
 int AnalyzeText(undefined* buf);
 int PreprocessString(char* output, int output_size, const char* format,
                      struct preprocessor_flags flags, struct preprocessor_args* args);
-int PreprocessStringFromMessageId(char* output, int output_size, int message_id,
-                                  struct preprocessor_flags flags, struct preprocessor_args* args);
+int PreprocessStringFromId(char* output, int output_size, int string_id,
+                           struct preprocessor_flags flags, struct preprocessor_args* args);
 bool StrcmpTagVeneer(const char* s1, const char* s2);
-int StoiTagVeneer(const char* s);
+int AtoiTagVeneer(const char* s);
 void InitPreprocessorArgs(struct preprocessor_args* args);
 char* SetStringAccuracy(char* s, int param_2);
 char* SetStringPower(char* s, int param_2);
@@ -504,99 +508,198 @@ void StrncpyName(char* dest, const char* src, uint32_t n);
 void GetStringFromFile(char* buf, int string_id);
 void LoadStringFile(void);
 void GetStringFromFileVeneer(char* buf, int string_id);
-char* StringFromMessageId(int message_id);
-void CopyStringFromMessageId(char* buf, int string_id);
-void CopyNStringFromMessageId(char* buf, int string_id, int buf_len);
+char* StringFromId(int string_id);
+void CopyStringFromId(char* buf, int string_id);
+void CopyNStringFromId(char* buf, int string_id, int buf_len);
 void LoadTblTalk(void);
 int GetTalkLine(int personality_idx, int group_id, int restrictions);
 bool IsAOrBPressed(void);
+void DrawTextInWindow(int window_id, int x, int y, char* string);
+struct window* GetWindow(int window_id);
 int NewWindowScreenCheck(struct window_params* params, uint8_t param_2);
 int NewWindow(struct window_params* params, uint8_t param_2);
 void SetScreenWindowsColor(int palette_idx, bool upper_screen);
 void SetBothScreensWindowsColor(int palette_idx);
+void UpdateWindow(int window_id);
+void ClearWindow(int window_id);
+void DeleteWindow(int window_id);
+void GetWindowRectangle(int window_id, struct window_rectangle* rect_out);
 void* GetWindowContents(int window_id);
 void LoadCursors(void);
 void InitWindowTrailer(struct window_trailer* trailer);
 void LoadAlert(void);
 void PrintClearMark(int mark_id, int x, int y, undefined param_4);
-int CreateParentMenu(struct window_params* params, uint32_t param_2, undefined* param_3,
-                     undefined4 param_4);
+int CreateParentMenuFromStringIds(struct window_params* params, struct window_flags flags,
+                                  struct window_extra_info* window_extra_info,
+                                  struct simple_menu_id_item* menu_items);
+bool IsEmptyString(const char* s);
+int CreateParentMenu(struct window_params* params, struct window_flags flags,
+                     struct window_extra_info* window_extra_info,
+                     struct simple_menu_ptr_item* menu_items);
+int CreateParentMenuWrapper(struct window_params* params, struct window_flags flags,
+                            struct window_extra_info* window_extra_info,
+                            struct simple_menu_ptr_item* menu_items);
+int CreateParentMenuInternal(struct window_params* params, struct window_flags flags,
+                             struct window_extra_info* window_extra_info,
+                             struct simple_menu_item* menu_items);
+void ResumeParentMenu(int window_id);
+void SetParentMenuState7(int window_id);
+void CloseParentMenu(int window_id);
+bool IsParentMenuActive(int window_id);
+bool CheckParentMenuField0x1A0(int window_id);
 void UpdateParentMenu(struct window* window);
-int CreateSimpleMenuWrapper(struct window_params* params, struct menu_flags menu_flags,
-                            struct menu_additional_info* menu_additional_info,
-                            struct simple_menu_option* menu_options, int option_id);
-int CreateSimpleMenu(struct window_params* params, struct menu_flags menu_flags,
-                     struct menu_additional_info* menu_additional_info, char* param_3,
-                     int option_id);
-void FreeSimpleMenu(int window_id);
+int CreateSimpleMenuFromStringIds(struct window_params* params, struct window_flags flags,
+                                  struct window_extra_info* window_extra_info,
+                                  struct simple_menu_id_item* menu_items, int n_items);
+int CreateSimpleMenu(struct window_params* params, struct window_flags flags,
+                     struct window_extra_info* window_extra_info,
+                     struct simple_menu_item* menu_items, int n_items);
+int CreateSimpleMenuInternal(struct window_params* params, struct window_flags flags,
+                             struct window_extra_info* window_extra_info,
+                             struct simple_menu_item* menu_items, int n_items);
+void ResumeSimpleMenu(int window_id);
+void CloseSimpleMenu(int window_id);
 bool IsSimpleMenuActive(int window_id);
+bool CheckSimpleMenuField0x1A0(int window_id);
+int GetSimpleMenuField0x1A4(int window_id);
 int GetSimpleMenuResult(int window_id);
 void UpdateSimpleMenu(struct window* window);
-int CreateAdvancedMenu(struct window_params* params, struct menu_flags menu_flags,
-                       struct menu_additional_info* menu_additional_info,
+void SetSimpleMenuField0x1AC(int window_id, int value);
+int CreateAdvancedMenu(struct window_params* params, struct window_flags flags,
+                       struct window_extra_info* window_extra_info,
                        advanced_menu_entry_fn_t* entry_fn, int n_options, int n_opt_per_page);
-void FreeAdvancedMenu(int window_id);
+void ResumeAdvancedMenu(int window_id);
+void CloseAdvancedMenu(int window_id);
+bool IsAdvancedMenuActive2(int window_id);
 bool IsAdvancedMenuActive(int window_id);
 int GetAdvancedMenuCurrentOption(int window_id);
 int GetAdvancedMenuResult(int window_id);
 void UpdateAdvancedMenu(struct window* window);
-int CreateCollectionMenu(struct window_params* params, uint32_t param_2, undefined* param_3,
-                         undefined* param_4, undefined4 param_5, int param_6, int param_7);
+int CreateCollectionMenu(struct window_params* params, struct window_flags flags,
+                         struct window_extra_info* window_extra_info,
+                         unk_collection_menu_fn_t* param_4, undefined4 param_5, int n_options,
+                         int n_opt_per_page);
+void SetCollectionMenuField0x1BC(int window_id, int value);
+void SetCollectionMenuWidth(int window_id, int width);
+void CloseCollectionMenu(int window_id);
+bool IsCollectionMenuActive(int window_id);
+void SetCollectionMenuField0x1C8(int window_id, uint8_t value);
+void SetCollectionMenuField0x1A0(int window_id, undefined4 value);
+void SetCollectionMenuField0x1A4(int window_id, undefined4 value);
+void SetCollectionMenuVoidFn(int window_id, unk_collection_menu_void_fn_t fn);
 void UpdateCollectionMenu(struct window* window);
-int CreateOptionsMenu(struct window_params* params, uint32_t param_2, undefined* param_3,
-                      undefined* param_4, int param_5, undefined4* param_6);
+void SetCollectionMenuField0x1B2(int window_id, undefined4 value);
+bool IsCollectionMenuState3(int window_id);
+int CreateOptionsMenu(struct window_params* params, struct window_flags flags,
+                      struct window_extra_info* window_extra_info,
+                      struct options_menu_id_item* menu_items, int n_items, undefined4* param_6);
+void CloseOptionsMenu(int window_id);
+bool IsOptionsMenuActive(int window_id);
+bool CheckOptionsMenuField0x1A4(int window_id);
 void UpdateOptionsMenu(struct window* window);
-int CreateDebugMenu(struct window_params* params, uint32_t param_2, undefined* param_3,
-                    uint16_t param_4, int param_5, undefined* param_6);
+int CreateDebugMenu(struct window_params* params, struct window_flags flags,
+                    struct window_extra_info* window_extra_info, uint16_t* menu_item_string_ids,
+                    int n_items, undefined* param_6);
+void CloseDebugMenu(int window_id);
+bool IsDebugMenuActive(int window_id);
+bool CheckDebugMenuField0x1A4(int window_id);
 void UpdateDebugMenu(struct window* window);
-int CreateScrollBox1(struct window_params* params, uint32_t param_2, undefined* param_3,
-                     uint16_t param_4, undefined* param_5, uint16_t param_6, undefined* param_7);
-int CreateScrollBox2(struct window_params* params, uint32_t param_2, undefined* param_3,
-                     int param_4, uint16_t* param_5, undefined* param_6, uint16_t* param_7,
-                     undefined* param_8);
+int CreateScrollBoxSingle(struct window_params* params, struct window_flags flags,
+                          struct window_extra_info* window_extra_info, uint16_t string_id1,
+                          struct preprocessor_args* args1, uint16_t string_id2,
+                          struct preprocessor_args* args2);
+int CreateScrollBoxMulti(struct window_params* params, struct window_flags flags,
+                         struct window_extra_info* window_extra_info, int n_strings,
+                         uint16_t* string_ids1, struct preprocessor_args* args1,
+                         uint16_t* string_ids2, struct preprocessor_args* args2);
+void SetScrollBoxState7(int window_id);
+void CloseScrollBox(int window_id);
+bool IsScrollBoxActive(int window_id);
 void UpdateScrollBox(struct window* window);
 int CreateDialogueBox(struct window_params* params);
-void FreeDialogueBox(int window_id);
+void CloseDialogueBox(int window_id);
 bool IsDialogueBoxActive(int window_id);
-void ShowMessageInDialogueBox(int window_id, struct preprocessor_flags flags, int string_id,
-                              struct preprocessor_args* args);
+void ShowStringIdInDialogueBox(int window_id, struct preprocessor_flags flags, int string_id,
+                               struct preprocessor_args* args);
 void ShowStringInDialogueBox(int window_id, struct preprocessor_flags flags, char* string,
                              struct preprocessor_args* args);
 void ShowDialogueBox(int window_id);
+void ReadStringFromDialogueBox(int window_id, char* buffer, uint32_t n);
 void UpdateDialogueBox(struct window* window);
 int CreatePortraitBox(enum screen screen, uint32_t palette_idx, bool framed);
-void FreePortraitBox(int window_id);
-void ShowPortraitBox(int window_id, struct portrait_box* portrait);
+void ClosePortraitBox(int window_id);
+bool PortraitBoxNeedsUpdate(int window_id);
+void ShowPortraitInPortraitBox(int window_id, struct portrait_params* portrait);
 void HidePortraitBox(int window_id);
 void UpdatePortraitBox(struct window* window);
-int CreateTextBox1(struct window_params* params, undefined4 param_2);
-int CreateTextBox2(struct window_params* params, undefined4 param_2, undefined4 param_3);
+int CreateTextBox(struct window_params* params, text_box_callback_fn_t cb);
+int CreateTextBoxWithArg(struct window_params* params, text_box_callback_with_arg_fn_t cb,
+                         void* cb_arg);
+void CloseTextBox(int window_id);
+void CloseTextBox2(int window_id);
 struct text_box* CreateTextBoxInternal(struct window_params* params);
 void UpdateTextBox(struct window* window);
-int CreateDynamicTextBox(struct window_params* params, uint32_t param_2, undefined* param_3,
-                         uint32_t id);
-void UpdateDynamicTextBox(struct window* window);
-int CreateControlsChart(struct window_params* params, undefined4 param_2, undefined* param_3,
-                        uint16_t param_4);
+bool IsTextBoxActive(int window_id);
+int CreateAreaNameBox(struct window_params* params, struct window_flags flags,
+                      struct window_extra_info* window_extra_info, uint32_t id);
+void SetAreaNameBoxState3(int window_id);
+void CloseAreaNameBox(int window_id);
+bool IsAreaNameBoxActive(int window_id);
+void UpdateAreaNameBox(struct window* window);
+int CreateControlsChart(struct window_params* params, struct window_flags flags,
+                        struct window_extra_info* window_extra_info, uint16_t string_id);
+void CloseControlsChart(int window_id);
+bool IsControlsChartActive(int window_id);
 void UpdateControlsChart(struct window* window);
 int CreateAlertBox(struct window_params* params);
+void CloseAlertBox(int window_id);
+bool IsAlertBoxActive(int window_id);
 void UpdateAlertBox(struct window* window);
-int CreateAdvancedTextBox1(struct window_params* params, uint32_t param_2, undefined* param_3,
-                           undefined4 param_4, undefined4 param_5);
-int CreateAdvancedTextBox2(struct window_params* params, uint32_t param_2, undefined* param_3,
-                           undefined4 param_4, undefined4 param_5, undefined4 param_6);
+int CreateAdvancedTextBox(struct window_params* params, struct window_flags flags,
+                          struct window_extra_info* extra_info, text_box_callback_fn_t cb,
+                          int n_items);
+int CreateAdvancedTextBoxWithArg(struct window_params* params, struct window_flags flags,
+                                 struct window_extra_info* extra_info,
+                                 text_box_callback_with_arg_fn_t cb, void* cb_arg, int n_items);
 struct advanced_text_box* CreateAdvancedTextBoxInternal(struct window_params* params,
-                                                        uint32_t param_2, undefined* param_3,
-                                                        undefined4 param_4, int param_5);
+                                                        struct window_flags flags,
+                                                        struct window_extra_info* extra_info,
+                                                        int n_items, int n_items_per_page);
+void SetAdvancedTextBoxPartialMenu(int window_id, bool partial_menu);
+void SetAdvancedTextBoxField0x1C4(int window_id, uint8_t value);
+void SetAdvancedTextBoxField0x1C2(int window_id);
+void CloseAdvancedTextBox2(int window_id);
+void SetAdvancedTextBoxState5(int window_id);
+void CloseAdvancedTextBox(int window_id);
+bool IsAdvancedTextBoxActive(int window_id);
+uint32_t GetAdvancedTextBoxFlags2(int window_id);
+void SetUnkAdvancedTextBoxFn(int window_id, unk_advanced_text_box_fn_t fn);
+void SetUnkAdvancedTextBoxWindowFn(int window_id, unk_advanced_text_box_window_fn_t fn);
 void UpdateAdvancedTextBox(struct window* window);
-int CreateTeamSelectionMenu(struct window_params* params, uint32_t param_2, undefined* param_3,
-                            undefined* param_4, int param_5, int param_6);
+void PlayAdvancedTextBoxInputSound(int window_id, int index);
+int CreateTeamSelectionMenu(struct window_params* params, struct window_flags flags,
+                            struct window_extra_info* window_extra_info,
+                            team_selection_menu_get_item_fn_t get_item, int n_items,
+                            int n_items_per_page);
+void CloseTeamSelectionMenu(int window_id);
+bool IsTeamSelectionMenuActive(int window_id);
 void UpdateTeamSelectionMenu(struct window* window);
+bool IsTeamSelectionMenuState3(int window_id);
+int CalcMenuHeightDiv8(struct window_flags flags, struct window_extra_info* extra_info,
+                       int* n_options, int* n_opt_per_page);
+void InitWindowInput(struct window_input_ctx* input_ctx, struct window_flags flags,
+                     struct window_extra_info* window_extra_info, struct window_rectangle* rect,
+                     int n_items, int n_items_per_page);
 bool IsMenuOptionActive(undefined* param_1);
-void PlayMenuOptionSound(undefined* param_1, int index);
-int ShowKeyboard(int message_id, char* buffer1, int param_3, char* buffer2);
+void PlayWindowInputSound(struct window_input_ctx* input_ctx, int index);
+void InitInventoryMenuInput(struct inventory_menu_input_ctx* input_ctx, struct window_flags flags,
+                            struct window_extra_info* window_extra_info,
+                            struct window_rectangle* rect, int n_items, int n_items_per_page,
+                            undefined param_7);
+int ShowKeyboard(int string_id, char* buffer1, int param_3, char* buffer2);
 int GetKeyboardStatus(void);
 int GetKeyboardStringResult(void);
+char* TeamSelectionMenuGetItem(char* buffer, int member_idx);
 void PrintMoveOptionMenu(void);
 void PrintIqSkillsMenu(enum monster_id monster_id, uint32_t* iq_skills_flags, int monster_iq,
                        bool is_blinded);
@@ -640,7 +743,9 @@ bool RestoreScriptVariableValues(void* src);
 void InitScenarioScriptVars(void);
 void SetScenarioScriptVar(enum script_var_id id, uint8_t val0, uint8_t val1);
 int GetSpecialEpisodeType(void);
+void SetSpecialEpisodeType(enum special_episode_type special_episode_type);
 int GetExecuteSpecialEpisodeType(void);
+bool IsSpecialEpisodeOpen(enum special_episode_type special_episode_type);
 bool HasPlayedOldGame(void);
 bool GetPerformanceFlagWithChecks(int flag_id);
 int GetScenarioBalance(void);
@@ -668,14 +773,15 @@ undefined4 CopyProgressInfoFromScratchTo(void* start_addr, uint32_t total_len);
 void CopyProgressInfoFrom(undefined* read_info);
 undefined4 CopyProgressInfoFromScratchFrom(void* start_addr, uint32_t total_len);
 void InitKaomadoStream(void);
-void InitPortraitBox(struct portrait_box* portrait);
-void InitPortraitBoxWithMonsterId(struct portrait_box* portrait, enum monster_id monster_id);
-void SetPortraitEmotion(struct portrait_box* portrait, enum portrait_emotion emotion);
-void SetPortraitLayout(struct portrait_box* portrait, uint8_t layout_idx);
-void SetPortraitOffset(struct portrait_box* portrait, struct vec2* offset);
-void AllowPortraitDefault(struct portrait_box* portrait, bool allow);
-bool IsValidPortrait(struct portrait_box* portrait);
-bool LoadPortrait(struct portrait_box* portrait, struct kaomado_buffer* buf);
+void InitPortraitParams(struct portrait_params* portrait);
+void InitPortraitParamsWithMonsterId(struct portrait_params* portrait, enum monster_id monster_id);
+void SetPortraitEmotion(struct portrait_params* portrait, enum portrait_emotion emotion);
+void SetPortraitLayout(struct portrait_params* portrait, uint8_t layout_idx);
+void SetPortraitOffset(struct portrait_params* portrait, struct vec2* offset);
+void AllowPortraitDefault(struct portrait_params* portrait, bool allow);
+bool IsValidPortrait(struct portrait_params* portrait);
+bool LoadPortrait(struct portrait_params* portrait, struct kaomado_buffer* buf);
+bool WonderMailPasswordToMission(char* password, struct mission* mission_data);
 void SetEnterDungeon(enum dungeon_id dungeon_id);
 void InitDungeonInit(struct dungeon_init* dungeon_init_data, enum dungeon_id dungeon_id);
 bool IsNoLossPenaltyDungeon(enum dungeon_id dungeon_id);
@@ -749,6 +855,9 @@ void SetMainTeamName(char* buf);
 int GetRankupPoints(void);
 enum rank GetRank(void);
 int GetRankStorageSize(void);
+void ResetPlayTimer(struct play_time* igt);
+void PlayTimerTick(struct play_time* igt);
+uint32_t GetPlayTimeSeconds(struct play_time* igt);
 uint32_t SubFixedPoint(uint32_t val_fp, uint32_t dec_fp);
 uint32_t BinToDecFixedPoint(uint32_t* q16);
 int CeilFixedPoint(uint32_t val_fp);
@@ -872,6 +981,7 @@ struct ground_monster* GetPartner(void);
 struct ground_monster* GetMainCharacter1(void);
 struct ground_monster* GetMainCharacter2(void);
 struct ground_monster* GetMainCharacter3(void);
+int GetFirstMatchingMemberIdx(enum monster_id monster_id);
 int GetFirstEmptyMemberIdx(int param_1);
 bool IsMonsterNotNicknamed(struct ground_monster* monster);
 void RemoveActiveMembersFromAllTeams(void);
@@ -920,17 +1030,24 @@ void GetStatBoostsForMonsterSummary(struct monster_summary* monster_summary,
 void CreateMonsterSummaryFromTeamMember(struct monster_summary* monster_summary,
                                         struct team_member* team_member, bool is_leader);
 int GetSosMailCount(int param_1, bool param_2);
+bool IsMissionSuspendedAndValid(struct mission* mission);
+bool AreMissionsEquivalent(struct mission* mission1, struct mission* mission2);
 bool IsMissionValid(struct mission* mission);
 enum mission_generation_result GenerateMission(undefined* param_1, struct mission* mission_data);
+bool IsMissionTypeSpecialEpisode(struct mission* mission);
 void GenerateDailyMissions(void);
+bool AlreadyHaveMission(struct mission* mission);
+int CountJobListMissions(void);
 int DungeonRequestsDone(uint8_t param_1, bool param_2);
 int DungeonRequestsDoneWrapper(uint8_t param_1);
 bool AnyDungeonRequestsDone(uint8_t param_1);
+void AddMissionToJobList(struct mission* mission);
 int GetAcceptedMission(int mission_id);
 int GetMissionByTypeAndDungeon(int start_index, enum mission_type mission_type,
                                undefined* subtype_struct, enum dungeon_id dungeon_id);
 bool CheckAcceptedMissionByTypeAndDungeon(enum mission_type mission_type, undefined* subtype_struct,
                                           enum dungeon_id dungeon_id);
+int GetAllPossibleMonsters(void* buf);
 int GenerateAllPossibleMonstersList(void);
 void DeleteAllPossibleMonstersList(void);
 int GenerateAllPossibleDungeonsList(void);
@@ -942,6 +1059,7 @@ bool IsMonsterMissionAllowed(enum monster_id monster_id);
 bool CanMonsterBeUsedForMissionWrapper(enum monster_id monster_id);
 bool CanMonsterBeUsedForMission(enum monster_id monster_id, bool check_story_banned);
 bool IsMonsterMissionAllowedStory(enum monster_id monster_id);
+bool CanDungeonBeUsedForMission(enum dungeon_id dungeon_id);
 bool CanSendItem(enum item_id item_id, bool to_sky);
 bool IsAvailableItem(enum item_id item_id);
 int GetAvailableItemDeliveryList(undefined* item_buffer);
@@ -952,89 +1070,9 @@ void SetActorTalkSub(int actor_id);
 void RandomizeDemoActors(void);
 void ItemAtTableIdx(int idx, struct bulk_item* item);
 void MainLoop(void);
+void CreateJobSummary(struct mission* mission, int param_2);
 int DungeonSwapIdToIdx(enum dungeon_id dungeon_id);
 enum dungeon_id DungeonSwapIdxToId(int idx);
 enum dungeon_mode GetDungeonModeSpecial(enum dungeon_id dungeon_id);
-void* ReadWaviEntry(struct wavi_data* wavi_data, int entry_index);
-int ResumeBgm(undefined4 param_1, undefined4 param_2, undefined4 param_3);
-void* FindSmdlSongChunk(void* smdl_data, uint16_t value_to_search);
-int FlushChannels(undefined* param_1, int param_2, int param_3);
-void ParseDseEvent(undefined* audio_state, struct track_data* track_data);
-void UpdateSequencerTracks(int param_1, undefined4 param_2, undefined4 param_3, undefined4 param_4);
-void UpdateChannels(void);
-void UpdateTrackVolumeEnvelopes(undefined* param_1);
-void EnableVramBanksInSetDontSave(struct vram_banks_set vram_banks);
-void EnableVramBanksInSet(struct vram_banks_set* vram_banks);
-void GeomMtxLoad4x3(struct matrix_4x3* matrix);
-void GeomMtxMult4x3(struct matrix_4x3* matrix);
-void GeomGxFifoSendMtx4x3(struct matrix_4x3* matrix, void* gxfifo);
-uint16_t GetTimer0Control(void);
-int ClearIrqFlag(void);
-int EnableIrqFlag(void);
-int SetIrqFlag(int new_value);
-int EnableIrqFiqFlags(void);
-int SetIrqFiqFlags(int new_value);
-int GetIrqFlag(void);
-int GetProcessorMode(void);
-void WaitForever2(void);
-void WaitForInterrupt(void);
-void ArrayFill16(uint16_t val, void* ptr, int len);
-void ArrayCopy16(void* src, void* dest, int len);
-void ArrayFill32(uint32_t val, void* ptr, int len);
-void ArrayCopy32(void* src, void* dest, int len);
-void ArrayFill32Fast(uint32_t val, void* ptr, int len);
-void ArrayCopy32Fast(void* src, void* dest, int len);
-void MemsetFast(void* ptr, char val, uint32_t len);
-void MemcpyFast(void* src, void* dest, uint32_t n);
-uint32_t AtomicExchange(uint32_t desired, void* ptr);
-void FileInit(struct file_stream* file);
-bool GetOverlayInfo(struct overlay_info_entry* overlay_info, undefined param_2, int overlay_id);
-bool LoadOverlayInternal(struct overlay_info_entry* overlay_info);
-void InitOverlay(struct overlay_info_entry* overlay_info);
-
-// If declaring these builtins causes issues, you can disable them
-#ifndef PMDSKY_NO_BUILTIN
-int abs(int x);
-int mbtowc(wchar_t* pwc, const char* s, size_t n);
-bool TryAssignByte(uint8_t* ptr, uint8_t val);
-bool TryAssignByteWrapper(uint8_t* ptr, uint8_t val);
-size_t wcstombs(char* dest, const wchar_t* src, size_t n);
-void* memcpy(void* dest, const void* src, size_t n);
-void* memmove(void* dest, const void* src, size_t n);
-void* memset(void* s, int c, size_t n);
-void* memchr(const void* s, int c, size_t n);
-int memcmp(const void* s1, const void* s2, size_t n);
-void memset_internal(void* s, int c, size_t n);
-int __vsprintf_internal_slice(slice_append_fn_t append, struct slice* str, const char* format,
-                              va_list ap);
-bool TryAppendToSlice(struct slice* slice, const void* data, size_t data_len);
-int __vsprintf_internal(char* str, size_t maxlen, const char* format, va_list ap);
-int vsprintf(char* str, const char* format, va_list ap);
-int snprintf(char* str, size_t n, const char* format, ...);
-int sprintf(char* str, const char* format, ...);
-size_t strlen(const char* s);
-char* strcpy(char* dest, const char* src);
-char* strncpy(char* dest, const char* src, size_t n);
-char* strcat(char* dest, const char* src);
-char* strncat(char* dest, const char* src, size_t n);
-int strcmp(const char* s1, const char* s2);
-int strncmp(const char* s1, const char* s2, size_t n);
-char* strchr(const char* string, int c);
-size_t strcspn(const char* string, const char* stopset);
-char* strstr(const char* haystack, const char* needle);
-size_t wcslen(const wchar_t* ws);
-float __addsf3(float a, float b);
-float __divsf3(float dividend, float divisor);
-double __extendsfdf2(float f);
-int __fixsfsi(float f);
-float __floatsisf(int i);
-float __floatunsisf(uint32_t u);
-float __mulsf3(float a, float b);
-float sqrtf(float x);
-float __subsf3(float a, float b);
-unsigned long long __divsi3(int dividend, int divisor);
-unsigned long long __udivsi3(uint32_t dividend, uint32_t divisor);
-unsigned long long __udivsi3_no_zero_check(uint32_t dividend, uint32_t divisor);
-#endif // #ifndef PMDSKY_NO_BUILTIN
 
 #endif

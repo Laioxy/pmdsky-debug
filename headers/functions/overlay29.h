@@ -41,6 +41,7 @@ void PointCameraToMonster(struct entity* entity, undefined param_2);
 void UpdateCamera(undefined param_1);
 bool ItemIsActive(struct entity* entity, enum item_id item_id);
 int GetVisibilityRange(void);
+void RevealWholeFloor(struct entity* entity);
 int PlayEffectAnimationEntity(struct entity* entity, int effect_id, bool play_now, int param_4,
                               int param_5, undefined param_6, int param_7, undefined2* param_8);
 int PlayEffectAnimationPos(struct position* pos, int effect_id, bool play_now);
@@ -58,6 +59,16 @@ int MonsterSpawnListPartialCopy(struct monster_spawn_entry* buffer, int current_
 bool IsOnMonsterSpawnList(enum monster_id monster_id);
 enum monster_id GetMonsterIdToSpawn(int spawn_weight);
 uint8_t GetMonsterLevelToSpawn(enum monster_id monster_id);
+void AllocTopScreenStatus(void);
+void FreeTopScreenStatus(void);
+int InitializeTeamStats(void);
+int UpdateTeamStatsWrapper(void);
+int FreeTeamStatsWrapper(void);
+void AssignTopScreenHandlers(void** funcs, top_screen_status_fn_t init_func,
+                             top_screen_status_fn_t update_func, void* param_4,
+                             top_screen_status_fn_t free_func);
+void HandleTopScreenFades(void);
+int FreeTopScreen(void);
 enum direction_id GetDirectionTowardsPosition(struct position* origin, struct position* target);
 int GetChebyshevDistance(struct position* position_a, struct position* position_b);
 bool IsPositionActuallyInSight(struct position* origin, struct position* target,
@@ -74,6 +85,8 @@ bool FindFarthestUnoccupiedTileWithin2(struct position* pos_out, struct position
 bool FindUnoccupiedTileWithin3(struct position* pos_out, struct position* origin, bool random_room);
 uint8_t TickStatusTurnCounter(uint8_t* counter);
 void AdvanceFrame(undefined param_1);
+void DisplayAnimatedNumbers(int amount, struct entity* entity, bool display_sign,
+                            enum number_color number_color);
 void SetDungeonRngPreseed23Bit(uint32_t preseed23);
 uint32_t GenerateDungeonRngSeed(void);
 uint32_t GetDungeonRngPreseed(void);
@@ -659,6 +672,7 @@ void SetShouldBoostHiddenStairsSpawnChance(bool value);
 void UpdateShouldBoostHiddenStairsSpawnChance(void);
 bool IsSecretRoom(void);
 bool IsSecretFloor(void);
+enum hidden_stairs_type GetCurrentHiddenStairsType(void);
 bool HiddenStairsPresent(void);
 void HiddenStairsTrigger(bool show_message);
 undefined4 GetDungeonGenInfoUnk0C(void);
@@ -671,6 +685,7 @@ void SetMinimapDataE448(uint8_t value);
 void InitWeirdMinimapMatrix(void);
 void InitMinimapDisplayTile(struct minimap_display_tile* minimap_display_tile, undefined* ptr);
 void LoadFixedRoomDataVeneer(void);
+void UnloadFixedRoomData(void);
 bool IsNormalFloor(void);
 void GenerateFloor(void);
 enum terrain_type GetTileTerrain(struct tile* tile);
@@ -781,6 +796,9 @@ void RemoveEmptyItemsInBagWrapper(void);
 void GenerateItem(struct item* item, enum item_id item_id, uint16_t quantity,
                   enum gen_item_stickiness sticky_type);
 bool DoesProjectileHitTarget(struct entity* user, struct entity* target);
+void DisplayFloorCard(int duration);
+void HandleFloorCard(enum dungeon_id dungeon_id, uint8_t floor, int duration,
+                     enum hidden_stairs_type hidden_stairs_type);
 bool CheckActiveChallengeRequest(void);
 struct mission_destination_info* GetMissionDestination(void);
 bool IsOutlawOrChallengeRequestFloor(void);
@@ -825,17 +843,22 @@ void LogMessageByIdWithPopup(struct entity* user, int message_id);
 void LogMessageWithPopup(struct entity* user, const char* message);
 void LogMessage(struct entity* user, const char* message, bool show_popup);
 void LogMessageById(struct entity* user, int message_id, bool show_popup);
-void InitPortraitDungeon(struct portrait_box* portrait, enum monster_id monster_id,
+void InitPortraitDungeon(struct portrait_params* portrait, enum monster_id monster_id,
                          enum portrait_emotion emotion);
 void OpenMessageLog(undefined4 param_1, undefined4 param_2);
 bool RunDungeonMode(undefined4* param_1, undefined4 param_2);
+void StartFadeDungeon(struct dungeon_fade* fstruct, int delta_delta_brightness,
+                      enum fade_status_dungeon fade_type);
+void StartFadeDungeonWrapper(int fade_type, int delta_delta_brightness, enum screen screen);
+void HandleFadesDungeon(enum screen screen);
+void HandleFadesDungeonBothScreens();
 void DisplayDungeonTip(struct message_tip* message_tip, bool log);
 void SetBothScreensWindowColorToDefault(void);
 int GetPersonalityIndex(struct monster* monster);
-void DisplayMessage(struct portrait_box* portrait, int message_id, bool wait_for_input);
-void DisplayMessage2(struct portrait_box* portrait, int message_id, bool wait_for_input);
-bool YesNoMenu(undefined param_1, int message_id, int default_option, undefined param_4);
-void DisplayMessageInternal(int message_id, bool wait_for_input, struct portrait_box* portrait,
+void DisplayMessage(struct portrait_params* portrait, int message_id, bool wait_for_input);
+void DisplayMessage2(struct portrait_params* portrait, int message_id, bool wait_for_input);
+bool YesNoMenu(undefined param_1, int string_id, int default_option, undefined param_4);
+void DisplayMessageInternal(int message_id, bool wait_for_input, struct portrait_params* portrait,
                             undefined4 param_4, undefined4 param_5, undefined4 param_6);
 void OpenMenu(undefined param_1, undefined param_2, bool open_bag);
 int OthersMenuLoop(void);

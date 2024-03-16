@@ -3840,12 +3840,16 @@ enum debug_flag {
     // Was supposed to throw an error if text overflowed the textbox it was contained in, but it
     // does nothing in the final game.
     DEBUG_FLAG_TEXT_LIMIT_CHECK = 6,
-    DEBUG_FLAG_NO_CHEAT_CHECK = 7,             // Unknown purpose
-    DEBUG_FLAG_NO_PLUNGE_CHECK = 8,            // Unknown purpose
-    DEBUG_FLAG_DUNGEON_INFINITE_COMEBACK = 10, // Unknown purpose
-    DEBUG_FLAG_GENERAL_DEBUG = 11,             // Enables debug menus
+    // Was supposed to toggle additional checks in IsMissionValid, but it does nothing in the final
+    // game. The checks are always enabled.
+    DEBUG_FLAG_NO_CHEAT_CHECK = 7,
+    // Was supposed to toggle a check to ensure the required parameters before entering a dungeon
+    // are set. Does nothing in the final game.
+    DEBUG_FLAG_NO_PLUNGE_CHECK = 8,
+    DEBUG_FLAG_DUNGEON_INFINITE_COMEBACK = 9, // Unknown purpose
+    DEBUG_FLAG_GENERAL_DEBUG = 10,            // Enables debug menus
     // Allows manually overriding the results of a dungeon expedition
-    DEBUG_FLAG_EDIT_MODE = 12,
+    DEBUG_FLAG_EDIT_MODE = 11,
 };
 
 // Logging flags listed in the debug menu. They enable certain kinds of debug logging.
@@ -3867,5 +3871,24 @@ enum debug_log_flag {
     DEBUG_LOG_FLAG_KERNEL = 15,
     DEBUG_LOG_FLAG_PERFORMANCE = 16,
 };
+
+// Fade status. Fade in means increasing brightness and fade out means decreasing.
+// As a result, fading the screen to white is considered a fade in.
+enum fade_status {
+    FADE_NONE = 0,
+    FADE_COMPLETE = 1,
+    FADE_IN = 2,
+    FADE_OUT = 3,
+};
+
+// The box type of a window.
+enum box_type {
+    BOX_TYPE_NORMAL = 0xFE,
+    BOX_TYPE_INVISIBLE = 0xFB,
+};
+
+#pragma pack(push, 1)
+ENUM_8_BIT(box_type);
+#pragma pack(pop)
 
 #endif

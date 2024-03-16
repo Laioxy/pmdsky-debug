@@ -544,6 +544,17 @@ overlay29:
         Returns dungeon::display_data::visibility_range. If the visibility range is 0, returns 2 instead.
         
         return: Visibility range of the current floor, or 2 if the visibility is 0.
+    - name: RevealWholeFloor
+      address:
+        EU: 0x22E3DE0
+        NA: 0x22E3430
+        JP: 0x22E4AA0
+      description: |-
+        Sets the luminous state for the floor and marks all the tiles on the floor as revealed.
+        
+        More specifically, sets dungeon::display_data::luminous to 1, sets visibility_flags::f_revealed for all tiles on the floor, calls UpdateCamera, UpdateTrapsVisibility, UpdateMinimap and logs the message "It became brighter on the floor!".
+        
+        r0: Pointer to the entity who revealed the floor
     - name: PlayEffectAnimationEntity
       address:
         EU: 0x22E3F94
@@ -732,6 +743,84 @@ overlay29:
         
         r0: monster ID
         return: Level of the monster to be spawned, or 1 if the specified ID can't be found on the floor's spawn table.
+    - name: AllocTopScreenStatus
+      address:
+        EU: 0x22E8874
+        NA: 0x22E7EC4
+        JP: 0x22E952C
+      description: |-
+        Allocates and initializes the top_screen_status struct when entering dungeon mode.
+        
+        No params.
+    - name: FreeTopScreenStatus
+      address:
+        EU: 0x22E88F4
+        NA: 0x22E7F44
+        JP: 0x22E95AC
+      description: |-
+        Gets called when leaving dungeon mode, calls FreeTopScreen and then also frees the allocated memory to the top_screen_status struct.
+        
+        No params.
+    - name: InitializeTeamStats
+      address:
+        EU: 0x22E8AE0
+        NA: 0x22E8130
+        JP: 0x22E9798
+      description: |-
+        Initializes the team stats top screen.
+        
+        return: always 1, seems unused
+    - name: UpdateTeamStatsWrapper
+      address:
+        EU: 0x22E8B40
+        NA: 0x22E8190
+        JP: 0x22E97F8
+      description: |-
+        Contains a check and calls UpdateTeamStats in overlay10.
+        
+        return: always 1, seems unused
+    - name: FreeTeamStatsWrapper
+      address:
+        EU: 0x22E8B98
+        NA: 0x22E81E8
+        JP: 0x22E9850
+      description: |-
+        Calls a function that calls FreeTeamStats in overlay10.
+        
+        return: always 1, seems unused
+    - name: AssignTopScreenHandlers
+      address:
+        EU: 0x22E9078
+        NA: 0x22E86C8
+        JP: 0x22E9D30
+      description: |-
+        Sets the handler functions of the top screen type.
+        
+        r0: Array where the handler function pointers get written to.
+        r1: init_func
+        r2: update_func
+        r3: ?
+        stack[0]: free_func
+    - name: HandleTopScreenFades
+      address:
+        EU: 0x22E921C
+        NA: 0x22E886C
+        JP: 0x22E9ED4
+      description: |-
+        Used to initialize and uninitialize the top screen in dungeon mode in conjunction with handling the fade status of the screen.
+        
+        For example, when a fade out is done, it calls the necessary functions to close the top screen windows. When it starts fading in again, it re-creates all the necessary windows corresponding to the top screen type setting.
+        
+        No params.
+    - name: FreeTopScreen
+      address:
+        EU: 0x22E95FC
+        NA: 0x22E8C4C
+        JP: 0x22EA2B4
+      description: |-
+        Gets called twice when fading out the top screen. First it calls the free_func of the top screen type and sets the handlers to null and on the second pass it just returns.
+        
+        return: always 1, seems unused
     - name: GetDirectionTowardsPosition
       address:
         EU: 0x22E99D0
@@ -876,6 +965,18 @@ overlay29:
         Advances one frame. Does not return until the next frame starts.
         
         r0: ? - Unused by the function
+    - name: DisplayAnimatedNumbers
+      address:
+        EU: 0x22EB0C8
+        NA: 0x22EA718
+        JP: 0x22EBD80
+      description: |-
+        Displays numbers or the "MISS" text above a monster. Normally used to display damage amounts, although it also has other uses (such as showing the stockpile count).
+        
+        r0: Amount to display. Can be negative. 9999 displays "MISS" instead.
+        r1: Entity above which the numbers will be displayed
+        r2: True to display a plus or minus sign before the numbers, false to hide it
+        r3: Color of the numbers. NUMBER_COLOR_AUTO to determine it automatically.
     - name: SetDungeonRngPreseed23Bit
       address:
         EU: 0x22EB318
@@ -6353,6 +6454,15 @@ overlay29:
         Checks if the current floor is a secret bazaar or a secret room.
         
         return: bool
+    - name: GetCurrentHiddenStairsType
+      address:
+        EU: 0x2339280
+        NA: 0x23386B0
+        JP: 0x2339A74
+      description: |-
+        Checks if the current floor is a secret bazaar or a secret room and returns which one it is.
+        
+        return: enum hidden_stairs_type
     - name: HiddenStairsPresent
       address:
         EU: 0x23392A8
@@ -6459,6 +6569,17 @@ overlay29:
         Likely a linker-generated veneer for LoadFixedRoomData.
         
         See https://developer.arm.com/documentation/dui0474/k/image-structure-and-generation/linker-generated-veneers/what-is-a-veneer-
+        
+        No params.
+    - name: UnloadFixedRoomData
+      address:
+        EU: 0x233B214
+        NA: 0x233A630
+        JP: 0x233B9F4
+      description: |-
+        Unloads fixed room data from the buffer pointed to by FIXED_ROOM_DATA_PTR, then clears the pointer.
+        
+        Also clears dungeon::unk_fixed_room_pointer.
         
         No params.
     - name: IsNormalFloor
@@ -7580,6 +7701,31 @@ overlay29:
         r0: Monster that throws the item
         r1: Target monster
         return: True if the item impacts on the target, false if the target dodges the item.
+    - name: DisplayFloorCard
+      address:
+        EU: 0x2348ED4
+        NA: 0x23482D4
+        JP: 0x234965C
+      description: |-
+        Dispatches the splash screen between floors showing the dungeon name and the current floor.
+        
+        First it checks whether the current floor is a secret bazaar or secret room, then it calls HandleFloorCard.
+        
+        r0: Duration in frames
+    - name: HandleFloorCard
+      address:
+        EU: 0x2348F0C
+        NA: 0x234830C
+        JP: 0x2349694
+      description: |-
+        Handles the display of the splash screen between floors showing the dungeon name and the current floor.
+        
+        Seems to enter a loop where it calls AdvanceFrame until the desired number of frames is waited or A is pressed.
+        
+        r0: dungeon_id
+        r1: floor
+        r2: duration
+        r3: enum hidden_stairs_type
     - name: CheckActiveChallengeRequest
       address:
         EU: 0x2349D4C
@@ -7997,9 +8143,9 @@ overlay29:
         NA: 0x234BAC0
         JP: 0x234CD24
       description: |-
-        Initialize the portrait box structure for the given monster and expression
+        Initialize the portrait params structure for the given monster and expression
         
-        r0: pointer the portrait box data structure to initialize
+        r0: pointer the portrait params data structure to initialize
         r1: monster id
         r2: emotion id
     - name: OpenMessageLog
@@ -8023,6 +8169,50 @@ overlay29:
         It gets called by MainGame right after doing the dungeon fade transition, and once it exits, the dungeon results are processed.
         
         This function is presumably in charge of allocating the dungeon struct, setting it up, launching the dungeon engine, etc.
+    - name: StartFadeDungeon
+      address:
+        EU: 0x234D008
+        NA: 0x234C408
+        JP: 0x234D66C
+      description: |-
+        Initiates a screen fade in dungeon mode.
+        
+        Sets the fields of the dungeon_fade struct to appropriate values given in the args.
+        
+        r0: Dungeon fade struct
+        r1: Change of brightness per frame
+        r2: Fade type
+    - name: StartFadeDungeonWrapper
+      address:
+        EU: 0x234D268
+        NA: 0x234C668
+        JP: 0x234D8CC
+      description: |-
+        Calls StartFadeDungeon to initiate a screen fade in dungeon mode.
+        
+        Sets the status field in the dungeon_fades struct to the fade type, then uses a switch-case to create a mapping of the status enums to different ones for some reason. This mapped value is then used in the StartFadeDungeon call.
+        
+        r0: Fade type
+        r1: Change of brightness per frame
+        r2: Screen to fade
+    - name: HandleFadesDungeon
+      address:
+        EU: 0x234D3D4
+        NA: 0x234C7D4
+        JP: 0x234DA38
+      description: |-
+        Gets called every frame for both screens in dungeon mode. Handles the status of the screen fades.
+        
+        r0: enum screen
+    - name: HandleFadesDungeonBothScreens
+      address:
+        EU: 0x234D5E4
+        NA: 0x234C9E4
+        JP: 0x234DC48
+      description: |-
+        Calls HandleFadesDungeon for both screens.
+        
+        No params.
     - name: DisplayDungeonTip
       address:
         EU: 0x234DAF0
@@ -9014,27 +9204,29 @@ overlay29:
         Note that this array is only used for the cardinal directions. The elements at odd indexes are unused and unconditionally set to 0.
         
         This array is used by the dungeon generation algorithm when generating room imperfections. See GenerateRoomImperfections.
-    - name: GUMMI_IQ_STRING_IDS
-      address:
-        EU: 0x2353EE0
-        NA: 0x23532D0
-      length:
-        NA: 0xA
-      description: "List that holds the message IDs for how much a monster's IQ was raised by in decreasing order."
     - name: GUMMI_LIKE_STRING_IDS
       address:
         EU: 0x2353EE0
         NA: 0x23532D0
       length:
+        EU: 0x8
         NA: 0x8
-      description: List that holds the message IDs for how much a monster liked a gummi in decreasing order.
+      description: List that holds the string IDs for how much a monster liked a gummi in decreasing order.
+    - name: GUMMI_IQ_STRING_IDS
+      address:
+        EU: 0x2353F3C
+        NA: 0x2353324
+      length:
+        EU: 0xA
+        NA: 0xA
+      description: "List that holds the string IDs for how much a monster's IQ was raised by in decreasing order."
     - name: DAMAGE_STRING_IDS
       address:
         EU: 0x2353F48
         NA: 0x2353330
       length:
         NA: 0x36
-      description: List that matches the damage_message ID to their corresponding message ID. The null entry at 0xE in the middle is for hunger. The last entry is null.
+      description: List that matches the damage_message ID to their corresponding string ID. The null entry at 0xE in the middle is for hunger. The last entry is null.
     - name: DUNGEON_PTR
       address:
         EU: 0x2354138
@@ -9063,6 +9255,16 @@ overlay29:
         This is a "master copy" of the dungeon pointer. The game uses this pointer when doing low-level memory work (allocation, freeing, zeroing). The normal DUNGEON_PTR is used for most other dungeon mode work.
         
         type: struct dungeon*
+    - name: TOP_SCREEN_STATUS_PTR
+      address:
+        EU: 0x2354154
+        NA: 0x2353554
+      length:
+        EU: 0x4
+      description: |-
+        [Runtime] Pointer for struct for handling the status of the top screen in dungeon mode.
+        
+        type: struct top_screen_status
     - name: LEADER_PTR
       address:
         EU: 0x235415C
@@ -9183,3 +9385,10 @@ overlay29:
         EU: 0x4
         NA: 0x4
       description: "[Runtime] Pointer to decoded fixed room data loaded from the BALANCE/fixed.bin file."
+    - name: DUNGEON_FADES_PTR
+      address:
+        EU: 0x23543F8
+        NA: 0x23537E0
+      length:
+        EU: 0x4
+      description: "[Runtime] Pointer to the dungeon fades struct that maintains the status of screen fades in dungeon mode."

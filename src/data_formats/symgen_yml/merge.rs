@@ -8,6 +8,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{self, Debug, Display, Formatter};
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
 use super::adapter::{AddSymbol, SymbolType};
@@ -274,7 +275,7 @@ fn truncate(s: &str) -> String {
 
 impl Merge for Symbol {
     fn merge(&mut self, other: &Self) -> Result<(), MergeConflict> {
-        if self.name != other.name {
+        if !self.iter_names().any(|n| n == other.name) {
             return Err(MergeConflict::new(&self.name, &other.name));
         }
         if let Some(other_desc) = &other.description {
@@ -300,6 +301,20 @@ impl Merge for Symbol {
                 Some(len) => MergeConflict::wrap(len.merge(other_len), "length")?,
             };
         }
+        // Slight optimization since most merges probably won't involve aliases
+        if self.name != other.name || other.aliases.is_some() {
+            let mut aliases = self.aliases.clone().unwrap_or_default();
+            for alias in other.iter_names().filter(|&n| n != self.name) {
+                // We don't expect more than a few aliases, so a linear search is probably going
+                // to be faster than a using a set
+                if !aliases.iter().any(|a| a == alias) {
+                    aliases.push(alias.to_owned());
+                }
+            }
+            if !aliases.is_empty() {
+                self.aliases = Some(aliases);
+            }
+        }
         Ok(())
     }
 }
@@ -309,11 +324,13 @@ impl Merge for SymbolList {
         let mut name_to_idx: HashMap<_, _> = self
             .iter()
             .enumerate()
-            .map(|(i, s)| (s.name.clone(), i))
+            // look for matches on all symbol names, including aliases
+            .flat_map(|(i, s)| s.iter_names().map(move |n| (n.to_owned(), i)))
             .collect();
         for symbol in other.iter() {
             match name_to_idx.get(&symbol.name) {
                 Some(&i) => unsafe {
+                    // # Safety
                     // Never out of bounds since it comes from the list, which never shrinks
                     MergeConflict::wrap(self.get_unchecked_mut(i).merge(symbol), &symbol.name)?;
                 },
@@ -456,79 +473,111 @@ impl Merge for SymGen {
     }
 }
 
+type IndexMap = HashMap<String, usize>;
+
+/// Subsidiary type to [`SymbolManager`] for interacting with a particular [`SymbolList`].
+struct SymbolListManager<'m, 's> {
+    imap: &'m mut IndexMap,
+    slist: &'s mut SymbolList,
+}
+
+impl<'m, 's> SymbolListManager<'m, 's> {
+    /// Gets a mutable reference to a [`Symbol`] from within the managed [`SymbolList`] with a name
+    /// matching the given `symbol`, if present. Otherwise, appends `symbol` onto `slist`, update
+    /// the manager cache, and return `None`.
+    fn get_or_insert(self, symbol: &Symbol) -> Option<&'s mut Symbol> {
+        if let Some(idx) = self.imap.get(&symbol.name).copied() {
+            // # Safety
+            // The only way to get a `SymbolListManager` instance is by calling
+            // `SymbolManager::manage_list()`, which requires that a given cache key (and thus
+            // `imap`) must always correspond to the same `slist`. Since `imap` is constructed to
+            // be an index map into `slist`, this means that any value within `imap` should be a
+            // valid index, so we can skip the check.
+            return Some(unsafe { self.slist.get_unchecked_mut(idx) });
+        }
+        let new_idx = self.slist.len();
+        self.imap.insert(symbol.name.clone(), new_idx);
+        for alias in symbol.iter_aliases() {
+            // The new symbol's aliases could still overlap with some other name, even if its
+            // primary name doesn't, so we still need to check this
+            if !self.imap.contains_key(alias) {
+                self.imap.insert(alias.to_owned(), new_idx);
+            }
+        }
+        self.slist.push(symbol.clone());
+        None
+    }
+}
+
 type BySymbolListId<T> = HashMap<Option<PathBuf>, HashMap<String, HashMap<SymbolType, T>>>;
 
 /// For [`SymbolList`] lookup and insertion, managed by a cache that stores
 /// index by subregion path, by block name, by symbol type, by symbol name.
-struct SymbolManager(BySymbolListId<HashMap<String, usize>>);
+struct SymbolManager(BySymbolListId<IndexMap>);
 
 impl SymbolManager {
     fn new() -> Self {
         Self(HashMap::new())
     }
 
-    /// Gets a mutable reference to a [`Symbol`] from within `slist`, with the given
-    /// cache key (`block_name`, `symbol_type`, `symbol_name`), if present in `slist`.
-    /// If the symbol is present but not within the [`SymbolManager`] cache, it will be
-    /// added the cache for future lookups.
-    fn get<'s>(
+    /// Put the given [`SymbolList`] under the management of the [`SymbolManager`], and return a
+    /// [`SymbolListManager`] through which to interact with the [`SymbolList`],
+    ///
+    /// If this [`SymbolList`] has not been seen by the manager yet, its entries will be indexed
+    /// by symbol name for future cache lookups.
+    ///
+    /// # Safety
+    /// `slist` must always be the same for a given (`subregion_path`, `block_name`, `symbol_type`).
+    unsafe fn manage_list<'s>(
         &mut self,
         slist: &'s mut SymbolList,
         subregion_path: &Option<PathBuf>,
         block_name: &str,
         symbol_type: &SymbolType,
-        symbol_name: &str,
-    ) -> Option<&'s mut Symbol> {
-        let idx = if let Some(imap) = self
-            .0
-            .get(subregion_path)
-            .and_then(|m| m.get(block_name))
-            .and_then(|m| m.get(symbol_type))
-        {
-            imap.get(symbol_name).copied()
-        } else {
-            let imap = slist.iter().enumerate().fold(
-                HashMap::with_capacity(slist.len()),
-                |mut m, (i, x)| {
-                    // Give the first appearance of a symbol name precedence
-                    if !m.contains_key(&x.name) {
-                        m.insert(x.name.clone(), i);
-                    }
-                    m
-                },
-            );
-            let i = imap.get(symbol_name).copied();
-            self.0
-                .entry(subregion_path.clone())
-                .or_insert_with(HashMap::new)
-                .entry(block_name.to_owned())
-                .or_insert_with(HashMap::new)
-                .entry(*symbol_type)
-                .or_insert(imap);
-            i
-        };
-        idx.map(move |i| unsafe { slist.get_unchecked_mut(i) })
-    }
-
-    /// Appends `symbol` onto `slist`, and update the [`SymbolManager`] cache with a given
-    /// `block_name` and `symbol_type`.
-    fn insert(
-        &mut self,
-        slist: &mut SymbolList,
-        subregion_path: &Option<PathBuf>,
-        block_name: &str,
-        symbol_type: &SymbolType,
-        symbol: Symbol,
-    ) {
-        if let Some(imap) = self
+    ) -> SymbolListManager<'_, 's> {
+        let imap_ref: &mut IndexMap = if let Some(imap) = self
             .0
             .get_mut(subregion_path)
             .and_then(|m| m.get_mut(block_name))
             .and_then(|m| m.get_mut(symbol_type))
         {
-            imap.insert(symbol.name.clone(), slist.len());
+            imap
+        } else {
+            let name_iter = slist.iter().enumerate().map(|(i, s)| (i, s.name.deref()));
+            let alias_iter = slist
+                .iter()
+                .enumerate()
+                .flat_map(|(i, s)| s.iter_aliases().map(move |a| (i, a)));
+            let imap = name_iter.chain(alias_iter).fold(
+                HashMap::with_capacity(slist.len()),
+                |mut m, (i, x)| {
+                    // Give the first appearance of a symbol name precedence, and give primary
+                    // names precedence over aliases
+                    if !m.contains_key(x) {
+                        m.insert(x.to_owned(), i);
+                    }
+                    m
+                },
+            );
+            self.0
+                .entry(subregion_path.clone())
+                .or_default()
+                .entry(block_name.to_owned())
+                .or_default()
+                .entry(*symbol_type)
+                .or_insert(imap)
+        };
+        SymbolListManager {
+            // # Safety
+            // imap_ref will always be a mutable reference to some value in self.0. Since we need
+            // to return this reference (with the same lifetime as self), it forces the mutable
+            // borrows against self.0 in both arms of the if-else clause to have the self lifetime,
+            // which causes the borrow checker to complain because the mutable references "overlap",
+            // even though they're mutually exclusive. To silence the borrow checker, just cast
+            // imap_ref to a pointer and back to a reference.
+            imap: unsafe { &mut *(imap_ref as *mut IndexMap) },
+            slist,
         }
-        slist.push(symbol);
     }
 }
 
@@ -665,6 +714,7 @@ impl SymGen {
                 }
             }
             if let Some(block_match) = block_matches.resolve(&to_add.symbol.name)? {
+                // # Safety
                 // block_match contains direct references into a block in a subregion, which itself
                 // is contained within block.subregions. This means that if we try to return it
                 // directly, the compiler will infer the lifetimes of the references within
@@ -720,26 +770,24 @@ impl SymGen {
                 SymbolType::Function => &mut block.functions,
                 SymbolType::Data => &mut block.data,
             };
-            let sym = sym_manager.get(slist, &sub_path, bname, &to_add.stype, &to_add.symbol.name);
-            match sym {
-                Some(s) => {
-                    let to_merge = if let Some(vers) = &block.versions {
-                        let mut cpy = to_add.symbol.clone();
-                        cpy.expand_versions(vers);
-                        Cow::Owned(cpy)
-                    } else {
-                        Cow::Borrowed(&to_add.symbol)
-                    };
-                    s.merge(&to_merge).map_err(MergeError::Conflict)?;
-                }
-                None => sym_manager.insert(
-                    slist,
-                    &sub_path,
-                    bname,
-                    &to_add.stype,
-                    to_add.symbol.clone(),
-                ),
+            let list_manager = unsafe {
+                // # Safety
+                // `assignment` (`sub_path`, `bname`, `block` -> `slist`) always come from
+                // `to_add` via `self.assign_block()`, which always returns references into self.
+                // This means that for a given (`sub_path`, `bname, `to_add.stype`), `slist` will
+                // always be the same list. This satisfies the invariant of `manage_list`.
+                sym_manager.manage_list(slist, &sub_path, bname, &to_add.stype)
             };
+            if let Some(sym) = list_manager.get_or_insert(&to_add.symbol) {
+                let to_merge = if let Some(vers) = &block.versions {
+                    let mut cpy = to_add.symbol.clone();
+                    cpy.expand_versions(vers);
+                    Cow::Owned(cpy)
+                } else {
+                    Cow::Borrowed(&to_add.symbol)
+                };
+                sym.merge(&to_merge).map_err(MergeError::Conflict)?;
+            }
         }
         // Reinit because merging can introduce new OrdStrings/Versions
         self.init();
@@ -900,6 +948,7 @@ mod tests {
     fn test_merge_symbol() {
         let mut x = Symbol {
             name: "function".to_string(),
+            aliases: None,
             address: MaybeVersionDep::ByVersion(
                 [("v1".into(), 1.into()), ("v2".into(), 2.into())].into(),
             ),
@@ -909,6 +958,7 @@ mod tests {
         assert!(x
             .merge(&Symbol {
                 name: "function".to_string(),
+                aliases: None,
                 address: MaybeVersionDep::ByVersion([("v3".into(), 3.into())].into()),
                 length: Some(MaybeVersionDep::Common(5)),
                 description: Some("desc".to_string()),
@@ -918,6 +968,7 @@ mod tests {
             &x,
             &Symbol {
                 name: "function".to_string(),
+                aliases: None,
                 address: MaybeVersionDep::ByVersion(
                     [
                         ("v1".into(), 1.into()),
@@ -934,9 +985,71 @@ mod tests {
         assert!(x
             .merge(&Symbol {
                 name: "function".to_string(),
+                aliases: None,
                 address: MaybeVersionDep::ByVersion([("v3".into(), 3.into())].into()),
                 length: None,
                 description: Some("other desc".to_string()),
+            })
+            .is_err())
+    }
+
+    #[test]
+    fn test_merge_symbol_aliases() {
+        let mut x = Symbol {
+            name: "function".to_string(),
+            aliases: Some(vec!["function_alias1".to_string()]),
+            address: MaybeVersionDep::Common(1.into()),
+            length: None,
+            description: None,
+        };
+        assert!(x
+            .merge(&Symbol {
+                name: "function".to_string(),
+                aliases: None,
+                address: MaybeVersionDep::Common(1.into()),
+                length: None,
+                description: None,
+            })
+            .is_ok());
+        assert!(x
+            .merge(&Symbol {
+                name: "function".to_string(),
+                aliases: Some(vec!["function_alias1".to_string()]), // should be deduped
+                address: MaybeVersionDep::Common(1.into()),
+                length: None,
+                description: None,
+            })
+            .is_ok());
+        assert!(x
+            .merge(&Symbol {
+                name: "function_alias1".to_string(),
+                aliases: Some(vec!["function_alias2".to_string(), "function".to_string()]),
+                address: MaybeVersionDep::Common(1.into()),
+                length: Some(MaybeVersionDep::Common(5)),
+                description: Some("desc".to_string()),
+            })
+            .is_ok());
+        assert_eq!(
+            &x,
+            &Symbol {
+                name: "function".to_string(),
+                aliases: Some(vec![
+                    "function_alias1".to_string(),
+                    "function_alias2".to_string()
+                ]),
+                address: MaybeVersionDep::Common(1.into()),
+                length: Some(MaybeVersionDep::Common(5)),
+                description: Some("desc".to_string()),
+            }
+        );
+
+        assert!(x
+            .merge(&Symbol {
+                name: "function_alias3".to_string(),
+                aliases: Some(vec!["function".to_string()]),
+                address: MaybeVersionDep::Common(1.into()),
+                length: None,
+                description: None,
             })
             .is_err())
     }
@@ -946,12 +1059,14 @@ mod tests {
         let mut x = SymbolList::from([
             Symbol {
                 name: "function1".to_string(),
+                aliases: None,
                 address: MaybeVersionDep::Common(1.into()),
                 length: None,
                 description: None,
             },
             Symbol {
                 name: "function2".to_string(),
+                aliases: Some(vec!["function2_alias".to_string()]),
                 address: MaybeVersionDep::Common(2.into()),
                 length: None,
                 description: None,
@@ -961,13 +1076,22 @@ mod tests {
             .merge(&SymbolList::from([
                 Symbol {
                     name: "function3".to_string(),
+                    aliases: Some(vec!["function3_alias".to_string()]),
                     address: MaybeVersionDep::Common(3.into()),
                     length: None,
                     description: None,
                 },
                 Symbol {
                     name: "function2".to_string(),
+                    aliases: None,
                     address: MaybeVersionDep::Common(4.into()),
+                    length: None,
+                    description: Some("desc".to_string()),
+                },
+                Symbol {
+                    name: "function2_alias".to_string(),
+                    aliases: Some(vec!["function2_alias2".to_string()]),
+                    address: MaybeVersionDep::Common(5.into()),
                     length: None,
                     description: Some("desc".to_string()),
                 },
@@ -978,18 +1102,24 @@ mod tests {
             &SymbolList::from([
                 Symbol {
                     name: "function1".to_string(),
+                    aliases: None,
                     address: MaybeVersionDep::Common(1.into()),
                     length: None,
                     description: None,
                 },
                 Symbol {
                     name: "function2".to_string(),
-                    address: MaybeVersionDep::Common([2, 4].into()),
+                    aliases: Some(vec![
+                        "function2_alias".to_string(),
+                        "function2_alias2".to_string()
+                    ]),
+                    address: MaybeVersionDep::Common([2, 4, 5].into()),
                     length: None,
                     description: Some("desc".to_string()),
                 },
                 Symbol {
                     name: "function3".to_string(),
+                    aliases: Some(vec!["function3_alias".to_string()]),
                     address: MaybeVersionDep::Common(3.into()),
                     length: None,
                     description: None,
@@ -1008,6 +1138,7 @@ mod tests {
             subregions: None,
             functions: [Symbol {
                 name: "function1".to_string(),
+                aliases: None,
                 address: MaybeVersionDep::ByVersion([("v1".into(), 1.into())].into()),
                 length: None,
                 description: None,
@@ -1024,6 +1155,7 @@ mod tests {
                 subregions: None,
                 functions: [Symbol {
                     name: "function2".to_string(),
+                    aliases: None,
                     address: MaybeVersionDep::ByVersion([("v2".into(), 1.into())].into()),
                     length: None,
                     description: None,
@@ -1031,6 +1163,7 @@ mod tests {
                 .into(),
                 data: [Symbol {
                     name: "data".to_string(),
+                    aliases: None,
                     address: MaybeVersionDep::ByVersion([("v1".into(), 1.into())].into()),
                     length: None,
                     description: None,
@@ -1049,12 +1182,14 @@ mod tests {
                 functions: [
                     Symbol {
                         name: "function1".to_string(),
+                        aliases: None,
                         address: MaybeVersionDep::ByVersion([("v1".into(), 1.into())].into()),
                         length: None,
                         description: None,
                     },
                     Symbol {
                         name: "function2".to_string(),
+                        aliases: None,
                         address: MaybeVersionDep::ByVersion([("v2".into(), 1.into())].into()),
                         length: None,
                         description: None,
@@ -1063,6 +1198,7 @@ mod tests {
                 .into(),
                 data: [Symbol {
                     name: "data".to_string(),
+                    aliases: None,
                     address: MaybeVersionDep::ByVersion([("v1".into(), 1.into())].into()),
                     length: None,
                     description: None,
@@ -1082,6 +1218,7 @@ mod tests {
             subregions: None,
             functions: [Symbol {
                 name: "function1".to_string(),
+                aliases: None,
                 address: MaybeVersionDep::ByVersion([("v1".into(), 1.into())].into()),
                 length: None,
                 description: None,
@@ -1099,12 +1236,14 @@ mod tests {
                 functions: [
                     Symbol {
                         name: "function1".to_string(),
+                        aliases: None,
                         address: MaybeVersionDep::Common(1.into()),
                         length: None,
                         description: None,
                     },
                     Symbol {
                         name: "function2".to_string(),
+                        aliases: None,
                         address: MaybeVersionDep::Common(1.into()),
                         length: None,
                         description: None,
@@ -1113,6 +1252,7 @@ mod tests {
                 .into(),
                 data: [Symbol {
                     name: "data".to_string(),
+                    aliases: None,
                     address: MaybeVersionDep::Common(1.into()),
                     length: None,
                     description: None,
@@ -1131,6 +1271,7 @@ mod tests {
                 functions: [
                     Symbol {
                         name: "function1".to_string(),
+                        aliases: None,
                         address: MaybeVersionDep::ByVersion(
                             [("v1".into(), 1.into()), ("v2".into(), 1.into())].into()
                         ),
@@ -1139,6 +1280,7 @@ mod tests {
                     },
                     Symbol {
                         name: "function2".to_string(),
+                        aliases: None,
                         address: MaybeVersionDep::ByVersion([("v2".into(), 1.into())].into()),
                         length: None,
                         description: None,
@@ -1147,6 +1289,7 @@ mod tests {
                 .into(),
                 data: [Symbol {
                     name: "data".to_string(),
+                    aliases: None,
                     address: MaybeVersionDep::ByVersion([("v2".into(), 1.into())].into()),
                     length: None,
                     description: None,
@@ -1169,6 +1312,8 @@ mod tests {
               description: foo
               functions:
                 - name: fn1
+                  aliases:
+                    - fn1_alias
                   address:
                     v1: 0x2001000
                   description: bar
@@ -1205,6 +1350,9 @@ mod tests {
                           length:
                             v1: 0x1000
                             v2: 0x1000
+                        - name: fn1_alias
+                          address:
+                            v3: 0x2003000
                         - name: fn2
                           address:
                             v1:
@@ -1251,9 +1399,12 @@ mod tests {
                   description: foo
                   functions:
                     - name: fn1
+                      aliases:
+                        - fn1_alias
                       address:
                         v1: 0x2001000
                         v2: 0x2002000
+                        v3: 0x2003000
                       length:
                         v1: 0x1000
                         v2: 0x1000
@@ -1472,6 +1623,7 @@ mod tests {
                 AddSymbol {
                     symbol: Symbol {
                         name: "fn1".to_string(),
+                        aliases: None,
                         address: MaybeVersionDep::ByVersion(
                             [("v1".into(), 0x2002000.into())].into(),
                         ),
@@ -1483,7 +1635,21 @@ mod tests {
                 },
                 AddSymbol {
                     symbol: Symbol {
+                        name: "fn1_alias".to_string(),
+                        aliases: Some(vec!["fn1_alias2".to_string()]),
+                        address: MaybeVersionDep::ByVersion(
+                            [("v1".into(), 0x2003000.into())].into(),
+                        ),
+                        length: None,
+                        description: None,
+                    },
+                    stype: SymbolType::Function,
+                    block_name: Some("main".to_string()),
+                },
+                AddSymbol {
+                    symbol: Symbol {
                         name: "SOME_DATA".to_string(),
+                        aliases: None,
                         address: MaybeVersionDep::ByVersion(
                             [("v1".into(), 0x2003000.into())].into(),
                         ),
@@ -1506,10 +1672,14 @@ mod tests {
                   description: foo
                   functions:
                     - name: fn1
+                      aliases:
+                        - fn1_alias
+                        - fn1_alias2
                       address:
                         v1:
                           - 0x2001000
                           - 0x2002000
+                          - 0x2003000
                       description: bar
                   data:
                     - name: SOME_DATA
@@ -1541,6 +1711,7 @@ mod tests {
         // Add a symbol for which block inference will fail
         let unmerged_symbol = Symbol {
             name: "fn3".to_string(),
+            aliases: None,
             address: MaybeVersionDep::ByVersion([("v1".into(), 0x2200000.into())].into()),
             length: None,
             description: None,
@@ -1620,6 +1791,7 @@ mod tests {
         let mut x = get_merge_target_with_subregions();
         let unmerged_symbol = Symbol {
             name: "unmerged".to_string(),
+            aliases: None,
             address: MaybeVersionDep::Common(0x100.into()),
             length: None,
             description: None,
@@ -1628,6 +1800,7 @@ mod tests {
             AddSymbol {
                 symbol: Symbol {
                     name: "main_fn".to_string(),
+                    aliases: None,
                     address: MaybeVersionDep::Common(0x80.into()),
                     length: None,
                     description: None,
@@ -1638,6 +1811,7 @@ mod tests {
             AddSymbol {
                 symbol: Symbol {
                     name: "sub1_data".to_string(),
+                    aliases: None,
                     address: MaybeVersionDep::Common(0x0.into()),
                     length: Some(MaybeVersionDep::Common(0x4)),
                     description: None,
@@ -1648,6 +1822,7 @@ mod tests {
             AddSymbol {
                 symbol: Symbol {
                     name: "sub2_fn".to_string(),
+                    aliases: None,
                     address: MaybeVersionDep::Common(0x50.into()),
                     length: None,
                     description: None,
@@ -1658,6 +1833,7 @@ mod tests {
             AddSymbol {
                 symbol: Symbol {
                     name: "sub3_data".to_string(),
+                    aliases: None,
                     address: MaybeVersionDep::Common(0x60.into()),
                     length: Some(MaybeVersionDep::Common(0x4)),
                     description: None,
@@ -1669,6 +1845,7 @@ mod tests {
             AddSymbol {
                 symbol: Symbol {
                     name: "sub3_fn".to_string(),
+                    aliases: None,
                     address: MaybeVersionDep::Common(0x64.into()),
                     length: None,
                     description: None,
@@ -1752,6 +1929,7 @@ mod tests {
                 vec![AddSymbol {
                     symbol: Symbol {
                         name: "fn1".to_string(),
+                        aliases: None,
                         address: MaybeVersionDep::Common(0x40.into()), // Fits in both sub1 and sub2
                         length: None,
                         description: None,

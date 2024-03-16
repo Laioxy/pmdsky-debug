@@ -34,6 +34,16 @@ pub enum NamingConvention {
     CamelCase,
     /// PascalCase
     PascalCase,
+    /// camel_Snake_Case (camelCase_Then_PascalCase)
+    CamelSnakeCase,
+    /// underscoreSeparated_camelCase
+    UnderscoreSeparatedCamelCase,
+    /// Pascal_Snake_Case (UnderscoreSeparated_PascalCase)
+    PascalSnakeCase,
+    /// flatcase
+    FlatCase,
+    /// UPPERFLATCASE
+    UpperFlatCase,
 }
 
 impl NamingConvention {
@@ -56,7 +66,7 @@ impl NamingConvention {
                         return false;
                     }
                 }
-                if let Some(c) = name.chars().rev().next() {
+                if let Some(c) = name.chars().next_back() {
                     if c.is_whitespace() {
                         return false;
                     }
@@ -95,6 +105,23 @@ impl NamingConvention {
                 }
                 NamingConvention::camel_family_check(name)
             }
+            Self::CamelSnakeCase => {
+                let mut parts_iter = name.split('_');
+                if let Some(first_part) = parts_iter.next() {
+                    if !Self::CamelCase.check(first_part) {
+                        return false;
+                    }
+                }
+                parts_iter.all(|part| Self::PascalCase.check(part))
+            }
+            Self::UnderscoreSeparatedCamelCase => {
+                name.split('_').all(|part| Self::CamelCase.check(part))
+            }
+            Self::PascalSnakeCase => name.split('_').all(|part| Self::PascalCase.check(part)),
+            // Note: !is_uppercase() is less restrictive than is_lowercase()
+            Self::FlatCase => name.chars().all(|c| !c.is_uppercase() && c != '_'),
+            // Note: !is_lowercase() is less restrictive than is_uppercase()
+            Self::UpperFlatCase => name.chars().all(|c| !c.is_lowercase() && c != '_'),
         }
     }
 
@@ -380,7 +407,7 @@ fn check_unique_symbols(symgen: &SymGen) -> Result<(), String> {
     let mut duplicate_subregions: BTreeMap<&OrdString, HashSet<&Path>> = BTreeMap::new();
     for (bname, b) in symgen.iter() {
         let mut names: HashSet<&str> = HashSet::new();
-        for name in b.iter().map(|s| &s.name) {
+        for name in b.iter().flat_map(|s| s.iter_names()) {
             if !names.insert(name) {
                 duplicate_names.entry(bname).or_default().insert(name);
             }
@@ -469,7 +496,8 @@ fn check_unique_symbols_across_subregions(symgen: &SymGen) -> Result<(), String>
 
         for block in cursor.dtraverse() {
             let path = path_cache.get(block.path());
-            let symbols: HashSet<&str> = block.block().iter().map(|s| s.name.as_ref()).collect();
+            let symbols: HashSet<&str> =
+                block.block().iter().flat_map(|s| s.iter_names()).collect();
             for symbol in symbols {
                 all_symbols
                     .entry(symbol)
@@ -844,6 +872,11 @@ where
             if !NamingConvention::check_multiple(convs, &s.name) {
                 bad_names.entry(bname).or_default().insert(&s.name);
             }
+            for a in s.iter_aliases() {
+                if !NamingConvention::check_multiple(convs, a) {
+                    bad_names.entry(bname).or_default().insert(a);
+                }
+            }
         }
     }
     assert_check(bad_names.is_empty(), || {
@@ -1127,6 +1160,105 @@ mod tests {
         }
 
         #[test]
+        fn test_camel_snake_case() {
+            run_name_checks(
+                NamingConvention::CamelSnakeCase,
+                [
+                    "camelCase",
+                    "camel",
+                    "withAWord",
+                    "withANumber1",
+                    "camelPart_PascalPart",
+                    "camelPart1_PascalPart2_PascalPart3",
+                ],
+                [
+                    "snake_case",
+                    "SCREAMING_SNAKE",
+                    "PascalCase",
+                    "Caps",
+                    "camelPart_camelPart",
+                    "PascalPart_camelPart",
+                ],
+            )
+        }
+
+        #[test]
+        fn test_underscore_separated_camel_case() {
+            run_name_checks(
+                NamingConvention::UnderscoreSeparatedCamelCase,
+                [
+                    "camelCase",
+                    "snake_case",
+                    "camel",
+                    "withAWord",
+                    "withANumber1",
+                    "camelPart_camelPart",
+                    "camelPart1_camelPart2_camelPart3",
+                ],
+                [
+                    "SCREAMING_SNAKE",
+                    "PascalCase",
+                    "Caps",
+                    "camelPart_PascalPart",
+                    "PascalPart_camelPart",
+                ],
+            )
+        }
+
+        #[test]
+        fn test_pascal_snake_case() {
+            run_name_checks(
+                NamingConvention::PascalSnakeCase,
+                [
+                    "PascalCase",
+                    "Pascal",
+                    "WithAWord",
+                    "WithANumber1",
+                    "PascalPart_PascalPart",
+                    "PascalPart1_PascalPart2_PascalPart3",
+                ],
+                [
+                    "snake_case",
+                    "SCREAMING_SNAKE",
+                    "camelCase",
+                    "lower",
+                    "camelPart_PascalPart",
+                    "PascalPart_camelPart",
+                ],
+            )
+        }
+
+        #[test]
+        fn test_flatcase() {
+            run_name_checks(
+                NamingConvention::FlatCase,
+                ["flatcase", "withanumber1"],
+                [
+                    "snake_case",
+                    "SCREAMING_SNAKE",
+                    "camelCase",
+                    "Caps",
+                    "UPPER",
+                ],
+            )
+        }
+
+        #[test]
+        fn test_upper_flatcase() {
+            run_name_checks(
+                NamingConvention::UpperFlatCase,
+                ["UPPERFLATCASE", "WITHANUMBER1"],
+                [
+                    "snake_case",
+                    "SCREAMING_SNAKE",
+                    "camelCase",
+                    "Caps",
+                    "lower",
+                ],
+            )
+        }
+
+        #[test]
         fn test_snake_or_pascal_case() {
             let convs = BTreeSet::from([NamingConvention::SnakeCase, NamingConvention::PascalCase]);
             assert!(NamingConvention::check_multiple(&convs, "snake_case"));
@@ -1317,6 +1449,36 @@ mod tests {
     }
 
     #[test]
+    fn test_unique_symbols_with_aliases() {
+        let mut symgen = get_test_symgen();
+        assert!(check_unique_symbols(&symgen).is_ok());
+
+        let block = get_main_block(&mut symgen);
+        // Give one function an alias that clashes with another symbol
+        block
+            .functions
+            .get_mut(0)
+            .expect("symgen has no functions")
+            .aliases = Some(vec![block.functions[1].name.clone()]);
+        assert!(check_unique_symbols(&symgen).is_err());
+
+        let mut symgen = get_test_symgen();
+        let block = get_main_block(&mut symgen);
+        // Give functions clashing aliases
+        block
+            .functions
+            .get_mut(0)
+            .expect("symgen has no functions")
+            .aliases = Some(vec!["alias".to_string()]);
+        block
+            .functions
+            .get_mut(1)
+            .expect("symgen doesn't have two functions")
+            .aliases = Some(vec!["alias".to_string()]);
+        assert!(check_unique_symbols(&symgen).is_err());
+    }
+
+    #[test]
     fn test_unique_subregions() {
         let mut symgen = get_test_symgen_with_subregions();
         assert!(check_unique_symbols(&symgen).is_ok());
@@ -1343,6 +1505,25 @@ mod tests {
             .next()
             .expect("subregion block has no functions")
             .clone();
+        let block = get_main_block(&mut symgen);
+        block.functions.push(symbol);
+        assert!(check_unique_symbols_across_subregions(&symgen).is_err());
+    }
+
+    #[test]
+    fn test_unique_symbols_with_aliases_across_subregions() {
+        let mut symgen = get_test_symgen_with_subregions();
+        assert!(check_unique_symbols_across_subregions(&symgen).is_ok());
+
+        // Insert an aliased copy of a subregion's symbol into the main block
+        let mut symbol = get_subregion_block(&mut symgen, 0)
+            .functions
+            .iter()
+            .next()
+            .expect("subregion block has no functions")
+            .clone();
+        symbol.aliases = Some(vec![symbol.name]);
+        symbol.name = "aliased_fn".to_string();
         let block = get_main_block(&mut symgen);
         block.functions.push(symbol);
         assert!(check_unique_symbols_across_subregions(&symgen).is_err());
@@ -1513,6 +1694,7 @@ mod tests {
         let block = get_main_block(&mut symgen);
         block.functions.push(Symbol {
             name: String::from("main_fn"),
+            aliases: None,
             address: MaybeVersionDep::ByVersion([("v1".into(), [address].into())].into()),
             length: None,
             description: None,
@@ -1551,6 +1733,29 @@ mod tests {
         let block = get_main_block(&mut symgen);
         // Set the data to have the wrong case
         block.data.get_mut(0).expect("symgen has no data").name = "snake_case".to_string();
+        assert!(check_data_names(&symgen, &[NamingConvention::ScreamingSnakeCase].into()).is_err());
+    }
+
+    #[test]
+    fn test_symbols_alias_name_check() {
+        let mut symgen = get_test_symgen();
+        assert!(check_function_names(&symgen, &[NamingConvention::SnakeCase].into()).is_ok());
+        assert!(check_data_names(&symgen, &[NamingConvention::ScreamingSnakeCase].into()).is_ok());
+
+        let block = get_main_block(&mut symgen);
+        // Set the function to have an alias with the wrong case
+        block
+            .functions
+            .get_mut(0)
+            .expect("symgen has no functions")
+            .aliases = Some(vec!["PascalCase".to_string()]);
+        assert!(check_function_names(&symgen, &[NamingConvention::SnakeCase].into()).is_err());
+
+        // reborrow
+        let block = get_main_block(&mut symgen);
+        // Set the data to have an alias with the wrong case
+        block.data.get_mut(0).expect("symgen has no data").aliases =
+            Some(vec!["snake_case".to_string()]);
         assert!(check_data_names(&symgen, &[NamingConvention::ScreamingSnakeCase].into()).is_err());
     }
 }

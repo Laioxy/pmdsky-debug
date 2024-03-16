@@ -166,6 +166,8 @@ class SymbolDiff:
         path: SymbolPath,
         *,
         new_path: Optional[SymbolPath] = None,
+        added_aliases: Optional[List[str]] = None,
+        deleted_aliases: Optional[List[str]] = None,
         added_addrs: Optional[List[Tuple[str, int]]] = None,
         deleted_addrs: Optional[List[Tuple[str, int]]] = None,
         modified_addrs: Optional[List[Tuple[str, int, int]]] = None,
@@ -176,6 +178,8 @@ class SymbolDiff:
     ):
         self.path = path
         self.new_path = new_path
+        self.added_aliases = added_aliases if added_aliases is not None else []
+        self.deleted_aliases = deleted_aliases if deleted_aliases is not None else []
         self.added_addrs = added_addrs if added_addrs is not None else []
         self.deleted_addrs = deleted_addrs if deleted_addrs is not None else []
         self.modified_addrs = modified_addrs if modified_addrs is not None else []
@@ -207,7 +211,9 @@ class SymbolDiff:
 
     def is_content_modification(self) -> bool:
         return bool(
-            self.added_addrs
+            self.added_aliases
+            or self.deleted_aliases
+            or self.added_addrs
             or self.deleted_addrs
             or self.modified_addrs
             or self.added_lens
@@ -250,12 +256,31 @@ class SymbolDiff:
                     desc_deleted = 1
                 else:
                     desc_modified = 1
+            addition_count = (
+                len(self.added_aliases)
+                + len(self.added_addrs)
+                + len(self.added_lens)
+                + desc_added
+            )
+            deletion_count = (
+                len(self.deleted_aliases)
+                + len(self.deleted_addrs)
+                + len(self.deleted_lens)
+                + desc_deleted
+            )
+            modification_count = (
+                len(self.modified_addrs) + len(self.modified_lens) + desc_modified
+            )
             detail_print(
-                f"{len(self.added_addrs) + len(self.added_lens) + desc_added} addition(s),"
-                + f" {len(self.deleted_addrs) + len(self.deleted_lens) + desc_deleted} deletion(s),"
-                + f" {len(self.modified_addrs) + len(self.modified_lens) + desc_modified} modification(s)",
+                f"{addition_count} addition(s),"
+                + f" {deletion_count} deletion(s),"
+                + f" {modification_count} modification(s)",
                 code=ansi.BOLD + ansi.BLUE,
             )
+            for alias in self.added_aliases:
+                detail_print(f"+ alias: {alias}")
+            for alias in self.deleted_aliases:
+                detail_print(f"- alias: {alias}")
             for addr in self.added_addrs:
                 detail_print(f"+ address: {versioned_int(addr)}")
             for addr in self.deleted_addrs:
@@ -332,6 +357,7 @@ class Symbol:
         self.file = filepath
         self.blockname = blockname
         self.name: str = symbol["name"]
+        self.aliases: List[str] = symbol.get("aliases", [])
         self.address: Dict[str, List[int]] = {
             version: Symbol.listify(addrs)
             for version, addrs in symbol["address"].items()
@@ -417,6 +443,20 @@ class Symbol:
 
             return added, deleted, modified
 
+        added_aliases = []
+        deleted_aliases = []
+        if self.aliases != base.aliases:
+            # We only expect a small number of aliases, so linear list search
+            # is probably faster than using a set
+            for alias in self.aliases:
+                if alias not in base.aliases:
+                    # addition
+                    added_aliases.append(alias)
+            for alias in base.aliases:
+                if alias not in self.aliases:
+                    # deletion
+                    deleted_aliases.append(alias)
+
         added_addrs, deleted_addrs, modified_addrs = diff_by_vers(
             self.address, base.address
         )
@@ -446,6 +486,8 @@ class Symbol:
         return SymbolDiff(
             path,
             new_path=new_path,
+            added_aliases=added_aliases,
+            deleted_aliases=deleted_aliases,
             added_addrs=added_addrs,
             deleted_addrs=deleted_addrs,
             modified_addrs=modified_addrs,
@@ -978,31 +1020,14 @@ def get_modified_paths(base: str, target: Optional[str]) -> List[Path]:
     return sorted(SYMBOL_DIR / t for t in tables)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Compare Git revisions of the pmdsky-debug symbol tables.",
-    )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="verbose output (with symbol modification details)",
-    )
-    parser.add_argument(
-        "-s",
-        "--subregion-resolution",
-        action="store_true",
-        help=(
-            "count symbols moving around subregions within the same"
-            + " top-level block as a modification"
-        ),
-    )
-    parser.add_argument(
-        "-d",
-        "--descriptions",
-        action="store_true",
-        help="count symbol description changes as a modification",
-    )
+def symdiff_parse_args(parser: argparse.ArgumentParser) -> argparse.Namespace:
+    """Like parser.parse_args(), but with added processing similar to git.
+
+    This appends the following optional arguments to the end of the parser:
+      [base] [target] [--] [path ...]
+    With appropriate help text, processing, and validation for symbol table
+    diffing.
+    """
     parser.add_argument(
         "base", nargs="?", default="HEAD", help="base revision against which to compare"
     )
@@ -1070,6 +1095,36 @@ if __name__ == "__main__":
     if nonrepo_paths:
         path_list_str = ", ".join(f"'{p}'" for p in nonrepo_paths)
         raise SystemExit(f"error: paths outside of git repository: {path_list_str}")
+
+    return args
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Compare Git revisions of the pmdsky-debug symbol tables.",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="verbose output (with symbol modification details)",
+    )
+    parser.add_argument(
+        "-s",
+        "--subregion-resolution",
+        action="store_true",
+        help=(
+            "count symbols moving around subregions within the same"
+            + " top-level block as a modification"
+        ),
+    )
+    parser.add_argument(
+        "-d",
+        "--descriptions",
+        action="store_true",
+        help="count symbol description changes as a modification",
+    )
+    args = symdiff_parse_args(parser)
 
     preceding_newline = False
     for path in args.path:
