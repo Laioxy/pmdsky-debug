@@ -237,7 +237,7 @@ uint16_t GetMaxHpAtLevel(enum monster_id monster_id, int level);
 uint8_t GetOffensiveStatAtLevel(enum monster_id monster_id, int level, int stat_idx);
 uint8_t GetDefensiveStatAtLevel(enum monster_id monster_id, int level, int stat_idx);
 void GetOutlawSpawnData(struct spawned_target_data* outlaw);
-void ExecuteMonsterAction(struct entity* monster);
+bool ExecuteMonsterAction(struct entity* monster);
 void TryActivateFlashFireOnAllMonsters(void);
 bool HasStatusThatPreventsActing(struct entity* monster);
 enum mobility_type GetMobilityTypeCheckSlip(enum monster_id species, bool walk_on_water);
@@ -301,7 +301,9 @@ bool TryDecreaseLevel(struct entity* user, struct entity* target, int n_levels);
 bool LevelUp(struct entity* user, struct entity* target, bool message, bool dialogue);
 void GetMonsterMoves(struct move_id_16* out_moves, enum monster_id monster_id, int level);
 void EvolveMonster(struct entity* user, struct entity* target, enum monster_id new_monster_id);
-uint8_t GetSleepAnimationId(struct entity* entity);
+void ChangeMonsterAnimation(struct entity* monster, int8_t animation_id,
+                            enum direction_id direction);
+uint8_t GetIdleAnimationId(struct entity* entity);
 bool DisplayActions(struct entity* param_1);
 void CheckNonLeaderTile(struct entity* entity);
 bool EndNegativeStatusCondition(struct entity* user, struct entity* target, bool animation,
@@ -852,7 +854,9 @@ void StartFadeDungeon(struct dungeon_fade* fstruct, int delta_delta_brightness,
 void StartFadeDungeonWrapper(int fade_type, int delta_delta_brightness, enum screen screen);
 void HandleFadesDungeon(enum screen screen);
 void HandleFadesDungeonBothScreens();
-void DisplayDungeonTip(struct message_tip* message_tip, bool log);
+bool DisplayFloorTip(void);
+bool DisplayItemTip(enum item_id item_id);
+bool DisplayDungeonTip(struct message_tip* message_tip, bool log);
 void SetBothScreensWindowColorToDefault(void);
 int GetPersonalityIndex(struct monster* monster);
 void DisplayMessage(struct portrait_params* portrait, int message_id, bool wait_for_input);

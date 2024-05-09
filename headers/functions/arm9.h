@@ -446,12 +446,12 @@ bool WanHasAnimationGroup(struct wan_header* wan_header, uint16_t animation_grou
 bool WanTableSpriteHasAnimationGroup(uint16_t sprite_id, uint16_t animation_group_id);
 enum wan_sprite_type SpriteTypeInWanTable(uint16_t sprite_id);
 void LoadWteFromRom(struct wte_handle* handle, const char* path, uint32_t flags);
-void LoadWteFromFileDirectory(struct wte_handle* handle, uint16_t pack_file_id, uint16_t file_index,
-                              uint32_t malloc_flags);
+void LoadWteFromFileDirectory(struct wte_handle* handle, enum pack_file_id pack_id,
+                              uint16_t file_index, uint32_t malloc_flags);
 void UnloadWte(struct wte_handle* handle);
 undefined* LoadWtuFromBin(int bin_file_id, int file_id, int load_type);
-void ProcessWte(undefined* header, undefined4 unk_pal, undefined4 unk_tex,
-                undefined4 unk_tex_param);
+void ProcessWte(undefined* wte_header_ptr, undefined4 pal_vram_offset,
+                undefined4 pal_texture_vram_offset_upper, undefined4 pal_texture_vram_offset_lower);
 void GeomSetTexImageParam(int texture_format, int texture_coordinates_transformation_modes,
                           int texture_s_size, int texture_t_size, int repeat_s_t, int flip_s_t,
                           bool color_0, int vram_offset);
@@ -567,7 +567,7 @@ void UpdateSimpleMenu(struct window* window);
 void SetSimpleMenuField0x1AC(int window_id, int value);
 int CreateAdvancedMenu(struct window_params* params, struct window_flags flags,
                        struct window_extra_info* window_extra_info,
-                       advanced_menu_entry_fn_t* entry_fn, int n_options, int n_opt_per_page);
+                       advanced_menu_entry_fn_t entry_fn, int n_options, int n_opt_per_page);
 void ResumeAdvancedMenu(int window_id);
 void CloseAdvancedMenu(int window_id);
 bool IsAdvancedMenuActive2(int window_id);
@@ -577,7 +577,7 @@ int GetAdvancedMenuResult(int window_id);
 void UpdateAdvancedMenu(struct window* window);
 int CreateCollectionMenu(struct window_params* params, struct window_flags flags,
                          struct window_extra_info* window_extra_info,
-                         unk_collection_menu_fn_t* param_4, undefined4 param_5, int n_options,
+                         unk_collection_menu_fn_t param_4, undefined4 param_5, int n_options,
                          int n_opt_per_page);
 void SetCollectionMenuField0x1BC(int window_id, int value);
 void SetCollectionMenuWidth(int window_id, int width);
