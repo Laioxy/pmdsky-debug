@@ -71,25 +71,50 @@ typedef bool (*slice_append_fn_t)(struct slice* slice, const void* data, size_t 
 
 // 64-bit signed fixed-point number with 16 fraction bits.
 // Represents the number ((upper << 16) + (lower >> 16) + (lower & 0xFFFF) * 2^-16)
-struct fx64 {
+struct fx64_16 {
     int32_t upper;  // sign bit, plus the 31 most significant integer bits
     uint32_t lower; // the 32 least significant bits (16 integer + 16 fraction)
 };
-ASSERT_SIZE(struct fx64, 8);
+ASSERT_SIZE(struct fx64_16, 8);
+
+// Define custom types for fixed-point numbers
+typedef int fx32_16;       // 32-bit signed fixed-point number with 16 fraction bits
+typedef int fx32_12;       // 32-bit signed fixed-point number with 12 fraction bits
+typedef int fx32_8;        // 32-bit signed fixed-point number with 8 fraction bits
+typedef int16_t fx16_14;   // 16-bit signed fixed-point number with 14 fraction bits
+typedef int16_t fx16_12;   // 16-bit signed fixed-point number with 12 fraction bits
+typedef uint32_t ufx32_16; // 32-bit unsigned fixed-point number with 16 fraction bits
+typedef uint32_t ufx32_8;  // 32-bit unsigned fixed-point number with 8 fraction bits
+
+// A raw ARMv5 data-processing instruction, such as MOV, ADD, AND, CMP, etc.
+// See the ARMv5 Architecture Reference Manual, Section A3.4.1
+// https://developer.arm.com/documentation/ddi0100/latest/
+struct data_processing_instruction {
+    // second source operand, either a shifted immediate value or a register, see Section A5.1
+    uint32_t shifter_operand : 12;
+    uint32_t rd : 4;     // destination register
+    uint32_t rn : 4;     // first source operand register
+    uint32_t s : 1;      // status flag, set if the instruction updates the status registers
+    uint32_t opcode : 4; // see Section A3.4, Table A3-2
+    uint32_t i : 1;      // immediate flag, set if shifter_operand represents an immediate
+    uint32_t _zero : 2;  // always 0
+    uint32_t cond : 4;   // condition code, see Section A3.2
+};
+ASSERT_SIZE(struct data_processing_instruction, 4);
 
 // 4x3 matrix for the 3D geometry engine, stored in row-major format.
 // Each element is a signed fixed-point number with 12 fraction bits.
 // See https://problemkaputt.de/gbatek.htm#ds3dmatrixtypes
 struct matrix_4x3 {
-    int32_t entry[4][3];
+    fx32_12 entry[4][3];
 };
 ASSERT_SIZE(struct matrix_4x3, 48);
 
 // TRIG_TABLE entry containing the value of sine/cosine at some angle
 // Each value is a signed fixed-point number with 12 fraction bits.
 struct trig_values {
-    int16_t sin;
-    int16_t cos;
+    fx16_12 sin;
+    fx16_12 cos;
 };
 ASSERT_SIZE(struct trig_values, 4);
 
