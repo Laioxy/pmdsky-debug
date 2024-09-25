@@ -2011,11 +2011,12 @@ arm9:
         NA: 0x200EAA0
         JP: 0x200EAD0
       description: |-
-        Used to check the AI flags for an item. Tests bit 7 if r1 is 0, bit 6 if r1 is 1, bit
-        5 otherwise.
+        Returns a boolean indicating whether the item is consumable, throwable at an ally, or throwable at an enemy, depending on item_flag.
+        The table used for this is inaccessible in the code, as it is loaded from a file in the ROM at runtime.
+        Bit 7 in the table corresponds to ITEM_FLAG_CONSUMABLE, bit 6 to ITEM_FLAG_THROWABLE_AT_ALLY, and bit 5 to ITEM_FLAG_THROWABLE_AT_ENEMY.
         
-        r0: item ID
-        r1: bit_id
+        r0: item_id enum
+        r1: item_flag enum. Function will test a different allowed AI action depending on the value.
         return: bool
     - name: IsItemInTimeDarkness
       address:
@@ -11163,7 +11164,7 @@ arm9:
         
         This is an array of 180 dungeon data list entry structs. Each entry is 4 bytes, and contains floor count information along with an index into the bulk of the dungeon's data in mappa_s.bin.
         
-        See the struct definitions and End45's dungeon data document for more info.
+        See the struct definitions and Frostbyte's dungeon data document for more info.
         
         type: struct dungeon_data_list_entry[180]
     - name: ADVENTURE_LOG_ENCOUNTERS_MONSTER_IDS
@@ -11311,7 +11312,7 @@ arm9:
         
         This is an array of 256 dungeon restriction structs. Each entry is 12 bytes, and contains information about restrictions within the given dungeon.
         
-        See the struct definitions and End45's dungeon data document for more info.
+        See the struct definitions and Frostbyte's dungeon data document for more info.
         
         type: struct dungeon_restriction[256]
     - name: SPECIAL_BAND_STAT_BOOST
@@ -11810,7 +11811,7 @@ arm9:
         
         Array of 18 36-byte entries.
         
-        See the struct definitions and End45's dungeon data document for more info.
+        See the struct definitions and Frostbyte's dungeon data document for more info.
         
         type: struct guest_monster[18]
     - name: RANK_UP_TABLE
@@ -11869,6 +11870,7 @@ arm9:
         EU: 0x4B0
         NA: 0x4B0
         JP: 0x4B0
+      description: Contains information about the sprite size and sprite file size of each monster
     - name: REMOTE_STRINGS
       address:
         EU: 0x20A4140
@@ -12317,7 +12319,7 @@ arm9:
         
         This is an array of 310 map marker structs. Each entry is 8 bytes, and contains positional information about a dungeon on the map.
         
-        See the struct definitions and End45's dungeon data document for more info.
+        See the struct definitions and Frostbyte's dungeon data document for more info.
         
         type: struct map_marker[310]
     - name: LFO_OUTPUT_VOICE_UPDATE_FLAGS

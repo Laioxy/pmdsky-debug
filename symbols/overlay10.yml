@@ -149,6 +149,7 @@ overlay10:
         JP: 0x22C10A8
       description: |-
         Just a guess. This is called in a loop in PlayEffectAnimation, and the output controls whether or not AdvanceFrame continues to be called.
+        If the current effect animation's is_non_blocking field is set, the function will return false the very first time it is called.
         
         r0: ?
         return: whether or not the animation still has more frames left?
@@ -1498,6 +1499,19 @@ overlay10:
         The turn range for the Whiffer status inflicted by Smokescreen, [1, 4).
         
         type: int16_t[2]
+    - name: PERISH_SONG_TURN_RANGE
+      address:
+        EU: 0x22C5128
+        NA: 0x22C47D0
+        JP: 0x22C5EB8
+      length:
+        EU: 0x4
+        NA: 0x4
+        JP: 0x4
+      description: |-
+        The turn range for the status inflicted by Perish Song, [3, 3).
+        
+        type: int16_t[2]
     - name: SHADOW_FORCE_DAMAGE_MULTIPLIER
       address:
         EU: 0x22C5134
@@ -2118,7 +2132,7 @@ overlay10:
         
         This is an array of 256 12-byte entries containing properties for a given fixed room ID.
         
-        See the struct definitions and End45's dungeon data document for more info.
+        See the struct definitions and Frostbyte's dungeon data document for more info.
         
         type: struct fixed_room_properties_entry[256]
     - name: TRAP_ANIMATION_INFO

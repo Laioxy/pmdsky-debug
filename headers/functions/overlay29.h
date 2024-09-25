@@ -34,6 +34,7 @@ bool ShouldDisplayEntityWrapper(struct entity* entity);
 bool CanSeeTarget(struct entity* user, struct entity* target);
 bool CanTargetEntity(struct entity* user, struct entity* target);
 bool CanTargetPosition(struct entity* monster, struct position* position);
+void PopulateActiveMonsterPtrs(void);
 int GetTeamMemberIndex(struct entity* monster);
 void SubstitutePlaceholderStringTags(int string_id, struct entity* entity, undefined4 param_3);
 bool UpdateMapSurveyorFlag(void);
@@ -51,10 +52,12 @@ void UpdateStatusIconFlags(struct entity* entity);
 void PlayEffectAnimation0x171Full(struct entity* entity);
 void PlayEffectAnimation0x171(struct entity* entity);
 void ShowPpRestoreEffect(struct entity* entity);
+bool ShouldDisplayEntityAdvanced(struct entity* entity);
 void PlayEffectAnimation0x1A9(struct entity* entity);
 void PlayEffectAnimation0x18E(struct entity* entity);
 void LoadMappaFileAttributes(int quick_saved, bool disable_monsters, undefined* special_process);
 enum item_id GetItemIdToSpawn(enum item_list_type item_list);
+int CopySpawnEntriesMaster(struct monster_spawn_entry* spawn_entries, int offset);
 int MonsterSpawnListPartialCopy(struct monster_spawn_entry* buffer, int current_buffer_entries);
 bool IsOnMonsterSpawnList(enum monster_id monster_id);
 enum monster_id GetMonsterIdToSpawn(int spawn_weight);
@@ -213,6 +216,7 @@ int CountMovesOutOfPp(struct entity* entity);
 bool HasSuperEffectiveMoveAgainstUser(struct entity* user, struct entity* target,
                                       bool ignore_moves_with_max_ginseng_not_99);
 bool TryEatItem(struct entity* user, struct entity* target);
+void SetDecoyAiTracker(struct entity* entity);
 bool CheckSpawnThreshold(enum monster_id monster_id);
 bool HasLowHealth(struct entity* entity);
 bool AreEntitiesAdjacent(struct entity* first, struct entity* second);
@@ -264,6 +268,9 @@ bool IsMonsterMuzzled(struct entity* monster);
 bool MonsterHasMiracleEyeStatus(struct entity* monster);
 bool MonsterHasNegativeStatus(struct entity* monster, bool check_held_item);
 bool IsMonsterSleeping(struct entity* monster);
+bool CheckVariousStatuses2(struct entity* entity, bool blind_check);
+bool CheckVariousConditions(struct entity* entity);
+bool CheckVariousStatuses(struct entity* entity);
 bool CanMonsterMoveInDirection(struct entity* monster, enum direction_id direction);
 enum mobility_type GetDirectionalMobilityType(struct entity* monster,
                                               enum mobility_type base_mobility,
@@ -274,6 +281,9 @@ bool CanAiMonsterMoveInDirection(struct entity* monster, enum direction_id direc
                                  bool* out_monster_in_target_position);
 bool ShouldMonsterRunAway(struct entity* monster);
 bool ShouldMonsterRunAwayVariation(struct entity* monster, undefined param_2);
+enum monster_treatment GetTreatmentBetweenMonsters(struct entity* entity1, struct entity* entity2,
+                                                   bool see_invisible_targets,
+                                                   bool ignore_petrified_targets);
 bool SafeguardIsActive(struct entity* user, struct entity* target, bool log_message);
 bool LeafGuardIsActive(struct entity* user, struct entity* target, bool log_message);
 bool IsProtectedFromStatDrops(struct entity* user, struct entity* target, bool log_message);
@@ -291,6 +301,7 @@ bool IqSkillIsEnabled(struct entity* entity, enum iq_skill_id iq_id);
 void UpdateIqSkills(struct monster* monster);
 enum type_id GetMoveTypeForMonster(struct entity* entity, struct move* move);
 int GetMovePower(struct entity* entity, struct move* move);
+bool MonsterCanThrowItems(struct monster* monster);
 bool UpdateStateFlags(struct monster* monster, uint16_t mask, bool set_flags);
 bool IsProtectedFromNegativeStatus(struct entity* user, struct entity* target, bool log_message);
 void AddExpSpecial(struct entity* attacker, struct entity* defender, int base_exp);
@@ -382,7 +393,14 @@ bool SpecificRecruitCheck(enum monster_id monster_id);
 bool RecruitCheck(struct entity* user, struct entity* target);
 bool TryRecruit(struct entity* user, struct entity* recruit);
 void TrySpawnMonsterAndTickSpawnCounter(void);
+void AiDecideUseItem(struct entity* entity);
+void GetPossibleAiThrownItemDirections(struct entity* entity, int ally_or_enemy, struct item* item,
+                                       bool always_add);
+void GetPossibleAiArcItemTargets(struct entity* user, struct item* item, struct position* positions,
+                                 bool always_add_position);
 void TryNonLeaderItemPickUp(struct entity* entity);
+bool GetExclusiveItemWithEffectFromBag(struct entity* entity,
+                                       enum exclusive_item_effect_id effect_id, struct item* item);
 bool AuraBowIsActive(struct entity* entity);
 int ExclusiveItemOffenseBoost(struct entity* entity, int move_category_idx);
 int ExclusiveItemDefenseBoost(struct entity* entity, int move_category_idx);
@@ -576,6 +594,8 @@ void ApplyViaSeedEffect(struct entity* user, struct entity* target);
 void ApplyGravelyrockEffect(struct entity* user, struct entity* target);
 void ApplyGonePebbleEffect(struct entity* user, struct entity* target);
 void ApplyGracideaEffect(struct entity* user, struct entity* target);
+int GetAiUseItemProbability(struct entity* item_consumer, struct item* item, uint32_t flags);
+bool IsAdjacentToEnemy(struct entity* entity);
 bool ShouldTryEatItem(enum item_id item_id);
 int GetMaxPpWrapper(struct move* move);
 bool MoveIsNotPhysical(enum move_id move_id);
@@ -597,6 +617,7 @@ bool MoveHitCheck(struct entity* attacker, struct entity* defender, struct move*
                   bool use_second_accuracy, bool never_miss_self);
 bool IsHyperBeamVariant(struct move* move);
 bool IsChargingTwoTurnMove(struct entity* user, struct move* move);
+bool IsChargingAnyTwoTurnMove(struct entity* entity, bool charge_check_unused);
 bool HasMaxGinsengBoost99(struct move* move);
 bool TwoTurnMoveForcedMiss(struct entity* target, struct move* move);
 bool DungeonRandOutcomeUserTargetInteraction(struct entity* user, struct entity* target,
@@ -627,6 +648,7 @@ int DealDamageWithType(struct entity* attacker, struct entity* defender, enum ty
                        struct move* move, fx32_8 damage_mult_fp, enum item_id item_id);
 int PerformDamageSequence(struct entity* attacker, struct entity* defender, struct move* move,
                           struct damage_data* damage_out, union damage_source damage_source);
+bool CanHitWithRegularAttack(struct entity* attacker, struct entity* defender);
 bool StatusCheckerCheck(struct entity* attacker, struct move* move);
 enum weather_id GetApparentWeather(struct entity* entity);
 void TryWeatherFormChange(struct entity* entity);
@@ -676,8 +698,12 @@ bool IsSecretRoom(void);
 bool IsSecretFloor(void);
 enum hidden_stairs_type GetCurrentHiddenStairsType(void);
 bool HiddenStairsPresent(void);
+bool PositionIsOnHiddenStairs(struct position* position);
 void HiddenStairsTrigger(bool show_message);
-undefined4 GetDungeonGenInfoUnk0C(void);
+enum hidden_stairs_type GetHiddenStairsField(void);
+void SetHiddenStairsField(enum hidden_stairs_type hidden_stairs);
+enum hidden_stairs_type GetHiddenFloorField(void);
+void SetHiddenFloorField(enum hidden_stairs_type hidden_floor);
 struct minimap_display_data* GetMinimapData(void);
 void DrawMinimapTile(int x, int y);
 void UpdateMinimap(void);

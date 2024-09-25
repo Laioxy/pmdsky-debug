@@ -314,8 +314,8 @@ struct action_data {
     struct direction_id_8 direction; // 0x2: Direction in which the action will be performed
     undefined field_0x3;
     struct action_parameter action_parameters[2]; // 0x4: Parameters for the action
-    int16_t field_0x10;
-    int16_t field_0x12;
+    // 0x10: Used for storing the target position of an item thrown in an arc, such as a Gravelerock
+    struct position arc_item_target_pos;
 };
 ASSERT_SIZE(struct action_data, 20);
 
@@ -484,10 +484,12 @@ struct monster {
     // tend to float? Otherwise 1?
     bool field_0x171;
     // 0x172: Set when the leader and falling through a pitfall trap.
+    // If both this and pitfall_trap_flag_0x174 are set, the sprite will disappear.
     bool pitfall_trap_flag_0x172;
     // 0x173: Some kind of visual flag?
     bool field_0x173;
     // 0x174: Set when the leader and falling through a pitfall trap.
+    // If both this and pitfall_trap_flag_0x172 are set, the sprite will disappear.
     bool pitfall_trap_flag_0x174;
     undefined field_0x175;
     undefined field_0x176;
@@ -533,7 +535,9 @@ struct monster {
     undefined field_0x199;
     undefined field_0x19a;
     undefined field_0x19b;
-    struct position pos; // 0x19C: Mirror of the position on the entity struct
+    // 0x19C: Mirror of the position on the entity struct.
+    // Is not updated properly in certain cases, such as in MoveMonsterToPos.
+    struct position pos;
     undefined field_0x1a0;
     undefined field_0x1a1;
     undefined field_0x1a2;
@@ -1240,15 +1244,20 @@ ASSERT_SIZE(struct trap_animation, 2);
 // Unverified, ported from Irdkwia's notes
 struct effect_animation {
     int field_0x0;
-    int field_0x4;
+    int file_index; // 0x4: File index in pack 3 (effect.bin)
     int field_0x8;
-    int field_0xc;
-    int field_0x10;
+    // 0xC: Some sort of index into the file. Related animations are grouped together into the same
+    // file and indexed with this. Is used as the animation_key parameter in
+    // SetAnimationForAnimationControl.
+    int animation_index;
+    int se_id; // 0x10: Sound effect id, passed to PlaySeByIdVolume
     int field_0x14;
     uint8_t field_0x18;
     int8_t field_0x19;
-    uint8_t field_0x1a;
-    uint8_t field_0x1b;
+    // 0x1A: Is non-zero if the animation is non-blocking. In this case, the animation will be
+    // delayed until the next time AnimationDelayOrSomething is called.
+    uint8_t is_non_blocking;
+    uint8_t unk_repeat; // 0x1B: If non-zero, makes the animation repeat a bunch of times
 };
 ASSERT_SIZE(struct effect_animation, 28);
 

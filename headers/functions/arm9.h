@@ -187,7 +187,7 @@ uint8_t GetItemPaletteId(enum item_id item_id);
 uint8_t GetItemActionName(enum item_id item_id);
 uint8_t GetThrownItemQuantityLimit(enum item_id, int limit_idx);
 enum move_id GetItemMoveId(enum item_id item_id);
-bool TestItemAiFlag(enum item_id item_id, int bit_id);
+bool TestItemAiFlag(enum item_id item_id, enum item_flag flag);
 bool IsItemInTimeDarkness(enum item_id item_id);
 bool IsItemValidVeneer(enum item_id item_id);
 void SetActiveInventoryToMain(void);
@@ -273,10 +273,12 @@ bool IsExclusiveItemIdForMonster(enum item_id item_id, enum monster_id monster_i
                                  enum type_id type1, enum type_id type2);
 bool IsExclusiveItemForMonster(struct item* item, enum monster_id monster_id, enum type_id type1,
                                enum type_id type2);
-enum item_id BagHasExclusiveItemTypeForMonster(int excl_type, enum monster_id monster_id,
-                                               enum type_id type1, enum type_id type2);
-bool GetExclusiveItemForMonsterFromBag(struct item* item, int excl_type, enum monster_id monster_id,
-                                       enum type_id type1, enum type_id type2);
+enum item_id BagHasExclusiveItemTypeForMonster(enum exclusive_item_effect_id effect_id,
+                                               enum monster_id monster_id, enum type_id type1,
+                                               enum type_id type2);
+bool GetExclusiveItemForMonsterFromBag(struct item* item, enum exclusive_item_effect_id effect_id,
+                                       enum monster_id monster_id, enum type_id type1,
+                                       enum type_id type2);
 int GetHpBoostFromExclusiveItems(undefined* param_1);
 void ApplyGummiBoostsToGroundMonster(struct ground_monster* ground_monster, enum item_id item_id,
                                      bool not_boost_stats, struct gummi_result* gummi_result);
